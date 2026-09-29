@@ -102,13 +102,27 @@ automatically.
 - **`E403` on the unscoped `tympan` at publish time** — would mean npm's
   similarity filter disagrees with the registry search; the fallback is
   the scoped name. (Did not happen: v0.4.1 published unscoped.)
-- **403 on publish under trusted publishing** — the trusted-publisher
-  entry doesn't match: repo name, owner, or workflow filename must equal
-  the workflow actually running (`release.yml` on `Blvckpanda/Tympan`), or
-  the run lacks `id-token: write` / OIDC. Re-check the package's settings
-  page and the workflow's `permissions:` block. The entry is per-package:
-  when the package name changed, it had to be re-added on the new
-  package's settings page.
+- **`E404` on `PUT …/tympan` under trusted publishing** — *observed on the
+  first token-free attempt*: the "anonymous publish" signature. The
+  runner's npm was older than the 11.5.1 floor, so no OIDC exchange
+  happened and the registry hid the package from an unauthenticated PUT.
+  Fixed by the `Upgrade npm` workflow step; keep it.
+- **`E403` "OIDC permission denied for this action"** — *observed on the
+  second/third attempts, after OIDC itself worked* (provenance even
+  reached the transparency log before the PUT failed). Two causes, both
+  hit: (1) **Allowed actions** — trusted-publisher entries created after
+  2026-09-03 default to *stage-only*; direct `npm publish` must be
+  explicitly allowed on the entry. (2) The same repo+workflow registered
+  as trusted publisher on **two packages at once** (scoped and unscoped)
+  made the claim ambiguous. Fix: allow direct publish on the (single)
+  entry, then re-run the failed jobs — no new tag needed while the
+  version isn't on the registry yet.
+- **403 on publish under trusted publishing (other)** — the entry's
+  repo/owner/workflow filename must equal the workflow actually running
+  (`release.yml` on `Blvckpanda/Tympan`), and the workflow needs
+  `id-token: write`. npm does **not** validate the entry when you save it
+  — errors only surface at publish time. The entry is per-package: when
+  the package name changed, it had to be re-added on the new package.
 - **404 right after publish** — CDN lag (see above), not a failure.
 - **Provenance error** — requires a public package + OIDC + `repository`
   in `package.json` pointing at the repo the workflow ran in. Keep the
