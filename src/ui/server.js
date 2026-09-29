@@ -1,5 +1,5 @@
 /**
- * ui/server.js — zero-dependency local preview server for aipdf.
+ * ui/server.js — zero-dependency local preview server for platen.
  *
  * Serves one inline UI page that:
  *   - accepts pasted HTML or a local file path
@@ -29,7 +29,7 @@ const PAGE = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>aipdf ui</title>
+<title>platen ui</title>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -49,7 +49,7 @@ const PAGE = `<!DOCTYPE html>
 </head>
 <body>
   <div id="pane">
-    <h1>aipdf ui</h1>
+    <h1>platen ui</h1>
     <div class="row">
       <label>Local HTML file (live-reloaded on change)</label><br>
       <input type="text" id="file" placeholder="C:\\\\path\\\\to\\\\deck.html">
@@ -113,7 +113,7 @@ function json(res, code, obj) {
  * @returns {Promise<import('node:http').Server>}
  */
 export function createUiServer(options = {}) {
-  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'aipdf-ui-'));
+  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'platen-ui-'));
   const state = {
     master: path.join(workdir, 'out.pdf'),
     ready: false,

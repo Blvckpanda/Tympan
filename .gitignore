@@ -1,7 +1,7 @@
 node_modules/
 *.log
 out/
-.aipdf-work/
+.platen-work/
 .env
 .env.local
 .DS_Store

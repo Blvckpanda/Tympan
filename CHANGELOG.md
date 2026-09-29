@@ -25,6 +25,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.3.3] - 2026-09-29
 
+### Changed
+- ** Renamed the project to platen** (the press plate that meets the paper).
+  npm's typosquat protection rejected the unscoped `aipdf` at publish time
+  (too similar to `jspdf`), so the package ships as **`@blvckpanda/platen`**;
+  the installed command is `platen` (`platen-ui` for the preview UI), and the
+  repo lives at github.com/Blvckpanda/Platen. The Chromium override environment
+  variable is now `PLATEN_CHROMIUM`; the acceptance runner's are
+  `PLATEN_REAL_DECK` / `PLATEN_REAL_PROBE`.
+
 ### Fixed
 - **Shrink-to-fit now actually holds its one page.** Open-loop scaling measured
   the section once and printed at the exact boundary scale; late font swaps
@@ -35,12 +44,12 @@ All notable changes to this project are documented here. The format is based on
   estimate.
 
 ### Added
-- First npm publication: `npm install aipdf` / `npx aipdf` now installs from
+- First npm publication: `npm install @blvckpanda/platen` / `npx @blvckpanda/platen` now installs from
   the registry. `package.json` gains `repository`, `homepage`, and `bugs`
   pointing at the GitHub repo (required for npm provenance).
 - README: Release workflow badge, npm version + license badges, and a
-  Screenshots section (social card, `aipdf ui` in action).
-- `smoke:real` accepts any deck via `AIPDF_REAL_DECK` / `AIPDF_REAL_PROBE`.
+  Screenshots section (social card, `platen ui` in action).
+- `smoke:real` accepts any deck via `PLATEN_REAL_DECK` / `PLATEN_REAL_PROBE`.
 
 ## [0.3.1] - 2026-09-28
 
@@ -54,7 +63,7 @@ All notable changes to this project are documented here. The format is based on
 ### Added
 - `--probe <text>` CLI flag: text that must appear on the last page (hit exits
   0, miss exits 1, missing value exits 2).
-- `aipdf ui` (`bin/aipdf-ui.js`, `npm run ui`): zero-dependency local preview
+- `platen ui` (`bin/platen-ui.js`, `npm run ui`): zero-dependency local preview
   server — paste HTML or watch a file, per-section progress over SSE, result in
   the browser's native PDF viewer, live reload on save.
 - Image-heavy email-variant test that runs on Linux CI (deterministic
@@ -71,7 +80,7 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
-- `convert(input, options)` library API and `aipdf` CLI (in progress).
+- `convert(input, options)` library API and `platen` CLI (in progress).
 - Generic section detection: explicit selector → `section.page-section` →
   `[data-page]` / `[data-slide]` → `<section>`/`<article>` children of the main
   container → whole-document fallback, with a reported strategy + confidence.

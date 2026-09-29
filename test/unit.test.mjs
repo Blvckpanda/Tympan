@@ -1,5 +1,5 @@
 /**
- * unit.test.mjs — DOM-free unit tests for aipdf's pure helpers.
+ * unit.test.mjs — DOM-free unit tests for platen's pure helpers.
  * Run: npm test   (node:test)
  */
 import test from 'node:test';

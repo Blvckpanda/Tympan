@@ -1,5 +1,5 @@
 /**
- * aipdf — zero-config HTML→PDF converter for AI-generated documents.
+ * platen — zero-config HTML→PDF converter for AI-generated documents.
  * One semantic section per page, runtime print-CSS defeated, self-verifying.
  */
 
@@ -40,7 +40,7 @@ export interface ConvertOptions {
   contentMaxWidth?: number;
   /** Set false to skip self-verification. Default true. */
   verify?: boolean;
-  /** Path to a Chromium executable (else AIPDF_CHROMIUM / Playwright cache). */
+  /** Path to a Chromium executable (else PLATEN_CHROMIUM / Playwright cache). */
   executablePath?: string;
   /** Progress callback: (event, data). */
   onProgress?: (event: string, data: unknown) => void;

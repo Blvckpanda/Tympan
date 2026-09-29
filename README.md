@@ -1,38 +1,45 @@
-# aipdf
+# platen
 
-[![CI](https://github.com/Blvckpanda/aipdf/actions/workflows/ci.yml/badge.svg)](https://github.com/Blvckpanda/aipdf/actions/workflows/ci.yml)
-[![Release](https://github.com/Blvckpanda/aipdf/actions/workflows/release.yml/badge.svg)](https://github.com/Blvckpanda/aipdf/actions/workflows/release.yml)
-[![npm](https://img.shields.io/npm/v/aipdf)](https://www.npmjs.com/package/aipdf)
-[![MIT license](https://img.shields.io/npm/l/aipdf)](LICENSE)
+[![CI](https://github.com/Blvckpanda/Platen/actions/workflows/ci.yml/badge.svg)](https://github.com/Blvckpanda/Platen/actions/workflows/ci.yml)
+[![Release](https://github.com/Blvckpanda/Platen/actions/workflows/release.yml/badge.svg)](https://github.com/Blvckpanda/Platen/actions/workflows/release.yml)
+[![npm](https://img.shields.io/npm/v/@blvckpanda%2Fplaten)](https://www.npmjs.com/package/@blvckpanda/platen)
+[![MIT license](https://img.shields.io/npm/l/@blvckpanda%2Fplaten)](LICENSE)
 
 Zero-config HTML→PDF converter for **AI-generated documents** — the React/Tailwind
 single-file bundles that AI assistants produce. One semantic section per page,
 runtime print-CSS defeated, self-verifying output.
 
-![aipdf before/after](assets/before-after.gif)
+![platen before/after](assets/before-after.gif)
 
 Plain Playwright's `page.pdf()` prints whatever the page's print CSS says — which is
 exactly what breaks AI HTML: runtime-injected `@media print` rules force page breaks
-on every section, clamp covers to `100vh`, and cap pages with `@page` rules. aipdf
+on every section, clamp covers to `100vh`, and cap pages with `@page` rules. platen
 defeats that pipeline instead of fighting it.
 
 ## Quickstart
 
 ```bash
-npx aipdf deck.html
+npx @blvckpanda/platen deck.html
 # deck.pdf + deck-email.pdf, one section per page, links clickable, verified
+```
+
+Or install the `platen` command globally:
+
+```bash
+npm install -g @blvckpanda/platen
+platen deck.html
 ```
 
 Preview it locally while you edit:
 
 ```bash
-npm run ui        # or: npx aipdf-ui  (local server, live reload, PDF pane)
+npm run ui        # or: npx -p @blvckpanda/platen platen-ui  (local server, live reload, PDF pane)
 ```
 
 Library:
 
 ```js
-import { convert } from 'aipdf';
+import { convert } from '@blvckpanda/platen';
 const { master, email, detection, verification } = await convert('deck.html', {
   email: true,
   outline: true,
@@ -42,18 +49,18 @@ if (!verification.ok) throw new Error('verification failed');
 ```
 
 Requires Node ≥ 20 and a Chromium binary (`npx playwright install chromium`, or point
-`AIPDF_CHROMIUM` at any chrome executable).
+`PLATEN_CHROMIUM` at any chrome executable).
 
 ## Screenshots
 
-**aipdf ui** — paste HTML or watch a local file, watch sections convert one by
+**platen ui** — paste HTML or watch a local file, watch sections convert one by
 one, read the result in the browser's native PDF viewer:
 
-![aipdf ui converting a three-section document](assets/aipdf-ui.png)
+![platen ui converting a three-section document](assets/aipdf-ui.png)
 
 The pitch as a card (also the repo's social preview — [1280×640](assets/social-card.png)):
 
-<p align="center"><img src="assets/social-card.png" alt="aipdf social card" width="560"></p>
+<p align="center"><img src="assets/social-card.png" alt="platen social card" width="560"></p>
 
 ## What it does
 
@@ -93,9 +100,9 @@ The pitch as a card (also the repo's social preview — [1280×640](assets/socia
 | Playwright / Puppeteer | Chromium | whatever the page's print CSS dictates — often broken | no | no |
 | Gotenberg | Chromium (Docker API) | same as Playwright | no | no |
 | WeasyPrint / Dompdf | no JS — cannot render AI bundles at all | — | — | — |
-| **aipdf** | Chromium (via Playwright) | **defeats runtime print CSS by cloning each section into a clean document** | **guaranteed, with auto-shrink** | **built in, exit codes for CI** |
+| **platen** | Chromium (via Playwright) | **defeats runtime print CSS by cloning each section into a clean document** | **guaranteed, with auto-shrink** | **built in, exit codes for CI** |
 
-aipdf is an opinionated *layer* on Chromium, not a new engine: the value is the
+platen is an opinionated *layer* on Chromium, not a new engine: the value is the
 pipeline, not the renderer.
 
 ## Limitations (honest ones)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * aipdf — HTML→PDF converter for AI-generated documents.
+ * platen — HTML→PDF converter for AI-generated documents.
  * One semantic section per page, runtime print-CSS defeated, self-verifying.
  * Thin wrapper over src/index.js convert() — no pipeline logic here.
  */
@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { convert } from '../src/index.js';
 
-const USAGE = `Usage: aipdf input.html [options]
+const USAGE = `Usage: platen input.html [options]
 
 Options:
   -o, --out <path>     Master PDF output path (default: <input>.pdf)
@@ -30,7 +30,7 @@ const args = process.argv.slice(2);
 const VALUED = new Set(['-o', '--out', '--selector', '--format', '--orientation', '--margin', '--teaser', '--title', '--author', '--probe']);
 
 function fail(msg) {
-  console.error(`aipdf: ${msg}\n\n${USAGE}`);
+  console.error(`platen: ${msg}\n\n${USAGE}`);
   process.exit(2);
 }
 
@@ -118,19 +118,19 @@ try {
     verify: !has.has('--no-verify'),
     onProgress: has.has('--quiet') ? undefined : (event, data) => {
       if (event === 'detected') {
-        console.error(`aipdf: ${data.sections.length} section(s) via ${data.strategy}`);
+        console.error(`platen: ${data.sections.length} section(s) via ${data.strategy}`);
       } else if (event === 'section') {
-        console.error(`aipdf: section ${data.index}/${data.total} (${data.id})`);
+        console.error(`platen: section ${data.index}/${data.total} (${data.id})`);
       } else onProgressDefault(event, data);
     },
   });
 } catch (e) {
-  console.error(`aipdf failed: ${e && e.message}`);
+  console.error(`platen failed: ${e && e.message}`);
   process.exit(1);
 }
 
 function onProgressDefault(event, data) {
-  if (event === 'pass-done') console.error(`aipdf: merged ${data.sections} page(s)`);
+  if (event === 'pass-done') console.error(`platen: merged ${data.sections} page(s)`);
 }
 
 let ok = true;
@@ -139,8 +139,8 @@ for (const o of result.verification?.outputs || []) {
   console.error(`${o.file}: ${o.pages}/${o.expected} pages` + (o.probeOk === false ? ' PROBE FAILED' : '') + (o.pagesOk ? '' : ' PAGE COUNT MISMATCH'));}
 
 if (!ok) {
-  console.error('aipdf: verification failed');
+  console.error('platen: verification failed');
   process.exit(1);
 }
 
-console.error(`aipdf: wrote ${result.master}${result.email ? ` + ${result.email}` : ''}`);
+console.error(`platen: wrote ${result.master}${result.email ? ` + ${result.email}` : ''}`);

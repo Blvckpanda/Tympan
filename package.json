@@ -1,20 +1,20 @@
 {
-  "name": "aipdf",
+  "name": "@blvckpanda/platen",
   "version": "0.3.3",
   "description": "Zero-config HTML→PDF converter for AI-generated documents: one semantic section per page, runtime print-CSS defeated, self-verifying output.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Blvckpanda/aipdf.git"
+    "url": "git+https://github.com/Blvckpanda/Platen.git"
   },
-  "homepage": "https://github.com/Blvckpanda/aipdf#readme",
+  "homepage": "https://github.com/Blvckpanda/Platen#readme",
   "bugs": {
-    "url": "https://github.com/Blvckpanda/aipdf/issues"
+    "url": "https://github.com/Blvckpanda/Platen/issues"
   },
   "bin": {
-    "aipdf": "bin/aipdf.js",
-    "aipdf-ui": "bin/aipdf-ui.js"
+    "platen": "bin/platen.js",
+    "platen-ui": "bin/platen-ui.js"
   },
   "exports": {
     ".": {
@@ -37,7 +37,7 @@
     "test": "node --test",
     "smoke": "node scripts/smoke.mjs",
     "smoke:real": "node scripts/smoke-real.mjs",
-    "ui": "node bin/aipdf-ui.js"
+    "ui": "node bin/platen-ui.js"
   },
   "keywords": [
     "html",

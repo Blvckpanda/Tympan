@@ -1,4 +1,4 @@
-# Publishing aipdf to npm
+# Publishing @blvckpanda/platen to npm
 
 Publishing is automated: pushing a version tag (`v*`) triggers
 [.github/workflows/release.yml](.github/workflows/release.yml), which packs,
@@ -13,15 +13,20 @@ happens.
    terminal login needed):
    * npmjs.com → avatar → *Access Tokens* → *Generate New Token* →
      **Granular Access Token**.
-   * **Token name**: something identifiable, e.g. `aipdf_npm_token`.
+   * **Token name**: something identifiable, e.g. `platen_ci_token`.
    * **Expiration**: 90 days (rotate on schedule; npm is tightening
-     token-bypass-2FA publishing over 2026–2027, and short-lived granular
-     tokens are the compliant pattern).
+     token-bypass-2FA publishing over 2026–2027 — see the migration note
+     below).
    * **Packages and scopes**: **Read and write**.
    * **Package selection**: **All packages** — per-package selection cannot
      authorize a package that doesn't exist yet, and the *first* publish
-     creates `aipdf`. After the first release you may rotate to a token
-     scoped to just the `aipdf` package.
+     creates `@blvckpanda/platen`. After the first release you may rotate to
+     a token scoped to just that package.
+   * **Enable "bypass 2FA" on the token.** This is the step that breaks CI
+     publishes when missed: if the account requires 2FA and the token doesn't
+     carry the bypass, npm rejects the publish with `EOTP` ("requires a
+     one-time password") no matter how valid the token is. The toggle only
+     exists at token-creation time.
    * *Generate Token* → copy the `npm_…` value (shown exactly once).
 
 2. **Give the repo the token as a secret** — via the GitHub web UI
@@ -31,18 +36,15 @@ happens.
      → **New repository secret**.
    * Name: `NPM_TOKEN` · Value: paste the `npm_…` token → *Add secret*.
 
-   If the repo doesn't exist yet, create it first
-   (github.com → *New repository* → name `aipdf`, public, no auto-generated
-   files — the local history is pushed as-is).
+## Why the package is scoped (`@blvckpanda/platen`)
 
-3. **Local publishing (fallback only)** — CI with provenance is the normal
-   path; if you must publish from a machine:
-   ```bash
-   # npm login works interactively (browser flow); on a headless box:
-   NODE_AUTH_TOKEN=npm_xxx npm publish --access public
-   ```
-   Plain local publishes cannot carry provenance — provenance requires the
-   CI OIDC environment, which is one more reason to prefer the tag workflow.
+npm's typosquat protection rejects new **unscoped** names that are too
+similar to existing packages — *at publish time*, even when the name is
+unused and resolvable. `aipdf` (too close to `jspdf`) and every short paper
+word (`ream`, `deckle`, bare `platen` — squatted) were rejected or taken.
+Scoped names skip the similarity filter entirely and can never be collided
+or squatted. The `@blvckpanda/` prefix just names the publisher. The
+installed **command is still `platen`**.
 
 ## Cutting a release
 
@@ -64,28 +66,45 @@ happens.
 ## Verify the release
 
 ```bash
-npm view aipdf version                 # registry has the new version
-npm view aipdf bin                     # both bins (aipdf, aipdf-ui) declared
+npm view @blvckpanda/platen version      # registry has the new version
+npm view @blvckpanda/platen bin          # platen + platen-ui declared
 cd "$(mktemp -d)"
-npx aipdf --help                       # installs from the registry and runs
+npx @blvckpanda/platen --help            # installs from the registry and runs
 ```
 
-(`npx aipdf-ui` starts a server and blocks by design — verify it via the
-bins listing above, or by running `npm run ui` in a checkout.)
+(`platen-ui` starts a server and blocks by design — verify it via the bins
+listing above, or `npm run ui` in a checkout. After a global install both
+`platen` and `platen-ui` are on PATH.)
 
-On npmjs.com → *Packages* → `aipdf`, the package page should show the
-**Provenance** badge on the release — that's the public, verifiable link
-between the published artifact and this repo's build.
+On npmjs.com → *Packages* → `@blvckpanda/platen`, the package page should
+show the **Provenance** badge on the release — that's the public, verifiable
+link between the published artifact and this repo's build.
 
-## Failure modes
+## Failure modes (all observed at least once)
 
 - **Publish step skipped** — `NPM_TOKEN` secret is missing/unset; add it and
   re-run the workflow from the Actions tab (re-run is safe: npm rejects
   duplicate versions, so a half-published release can't corrupt the registry).
-- **403 on publish** — the token lacks write permission for the package, the
-  token is scoped to packages that don't include `aipdf`, or the token
-  expired (granular tokens carry an expiration date).
+- **`EOTP` / "requires a one-time password"** — the token lacks the
+  **bypass 2FA** flag (it can only be set when the token is created). Create
+  a new token with the flag on and update the secret; re-run is safe.
+- **`E403` "Package name too similar to existing package"** — the typosquat
+  filter rejecting an unscoped name at publish time. Nothing to override:
+  pick a scoped name (that's why this package is `@blvckpanda/platen`).
+- **403 on publish (other)** — token lacks write permission/scopes, doesn't
+  cover the package, or expired (granular tokens carry an expiration date).
 - **Provenance error** — provenance requires public packages + OIDC; the
   workflow already sets `id-token: write`. It also requires
   `repository` in `package.json` to point at the repo the workflow ran in —
   keep the `repository`/`homepage`/`bugs` fields in sync if the repo moves.
+
+## Migration note: trusted publishing (before Jan 2027)
+
+npm is sunsetting tokens that bypass 2FA for direct publishing (account
+changes restricted Aug 2026, direct publishing Jan 2027). The endgame is
+[trusted publishing](https://docs.npmjs.com/trusted-publishers/): the
+workflow already carries `id-token: write`, so once the package exists, add
+a trusted publisher on the package's npm settings page
+(user `Blvckpanda`, repo `Platen`, workflow `release.yml`) and the publish
+becomes token-free with provenance generated automatically. Then the
+`NPM_TOKEN` secret can be revoked and the token class problem disappears.

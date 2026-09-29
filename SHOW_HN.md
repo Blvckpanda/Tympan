@@ -1,8 +1,8 @@
-# Show HN draft — aipdf
+# Show HN draft — platen
 
 ## Title options (pick one; plain declarative works best on HN)
 
-1. **Show HN: Aipdf – Turn AI-generated HTML into clean, paginated PDFs**
+1. **Show HN: Platen – Turn AI-generated HTML into clean, paginated PDFs**
 2. **Show HN: One-section-per-page PDFs from AI-generated HTML**
 3. **Show HN: Printing AI-generated HTML is broken, so I built a tool that fixes it**
 
@@ -18,7 +18,7 @@ Recommended: #1 — names the tool, states the outcome, no hype.
 > page size with @page rules. Raw Playwright/Puppeteer print whatever that CSS
 > says — so the output is slivers, split sections, and broken pagination.
 >
-> aipdf (MIT, Node, zero config) works differently: it detects the document's
+> platen (MIT, Node, zero config) works differently: it detects the document's
 > semantic sections, clones each one into a clean minimal document that carries
 > only the static stylesheets — the injected print CSS never comes along —
 > prints each section onto exactly one page (shrinking just enough when a
@@ -28,7 +28,7 @@ Recommended: #1 — names the tool, states the outcome, no hype.
 > verifies its own output (page count, last-page probe) with non-zero exit
 > codes for CI.
 >
-> Usage: `npx aipdf deck.html`
+> Usage: `npx @blvckpanda/platen deck.html`
 >
 > It is an opinionated layer on headless Chromium, not a new rendering engine —
 > WeasyPrint-class tools can't run the JS these bundles need, and Gotenberg
