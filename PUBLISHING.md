@@ -5,17 +5,16 @@ Publishing is automated: pushing a version tag (`v*`) triggers
 publishes with [provenance](https://docs.npmjs.com/generating-provenance), and
 creates a GitHub Release with the tarball.
 
-**Current state: migrating to trusted publishing (no `NPM_TOKEN`).** The
-workflow's publish step runs unconditionally (the old
-`if: env.NPM_TOKEN != ''` guard is gone — with the secret deleted, a guard
-would silently *skip* publishing while the job stayed green). v0.4.1 is
-the name-migration release and still carries the token as a fallback;
-from v0.4.2 the repository has **no npm token secret at all** — the
-workflow authenticates with [trusted
-publishing](https://docs.npmjs.com/trusted-publishers) (OIDC from GitHub
-Actions) and provenance is generated automatically. Requirements, all
-satisfied: npm CLI ≥ 11.5.1 on the runner (setup-node 22 provides it) and
-`id-token: write` in the workflow.
+**Current state: trusted publishing, no npm token anywhere.** Since v0.4.2
+the repository has **no npm token secret at all**: the publish step runs
+unconditionally (the old `if: env.NPM_TOKEN != ''` guard is gone — with a
+secret missing, a guard would silently *skip* publishing while the job
+stayed green) and authenticates with [trusted
+publishing](https://docs.npmjs.com/trusted-publishers) — OIDC from GitHub
+Actions, via the package's Trusted Publisher entry (`Blvckpanda` /
+`Tympan` / `release.yml`). Provenance is generated automatically.
+Requirements, all satisfied: npm CLI ≥ 11.5.1 on the runner (setup-node 22
+provides it) and `id-token: write` in the workflow.
 
 ## One-time setup (done 2026-09-29, kept for reference)
 

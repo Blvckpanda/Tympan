@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-09-29
+
+### Changed
+- **Publishing is now fully token-free.** The repository carries no npm
+  secret at all: the release workflow authenticates via npm trusted
+  publishing (OIDC from GitHub Actions; the package's Trusted Publisher
+  entry names this repo and `release.yml`, and the workflow carries
+  `id-token: write`). Provenance is signed automatically. The temporary
+  `NPM_TOKEN` fallback from 0.4.1 is gone — from the workflow env and
+  from the repository secrets — so if authentication ever breaks, the
+  publish fails loudly instead of silently skipping.
+
 ## [0.4.1] - 2026-09-29
 
 ### Changed

@@ -1,9 +1,10 @@
 name: Release
 
 # Publishes to npm when a version tag (v*) is pushed. See PUBLISHING.md.
-# Authentication: trusted publishing (npm OIDC) — no npm token secret exists
-# in this repository. NPM_TOKEN/NODE_AUTH_TOKEN are kept as a temporary
-# fallback during the name migration (0.4.1) and are removed in 0.4.2.
+# Authentication: npm trusted publishing — OIDC from GitHub Actions.
+# There is no npm token secret in this repository, by design: the publish
+# step authenticates via the package's Trusted Publisher entry
+# (Blvckpanda/Tympan, release.yml) and needs `id-token: write` only.
 on:
   push:
     tags: ['v*']
@@ -29,11 +30,8 @@ jobs:
         run: |
           npm pack --dry-run
           npm pack
-      - name: Publish to npm
+      - name: Publish to npm (trusted publishing, no token)
         run: npm publish --provenance --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: GitHub Release (attach tarball)
         uses: softprops/action-gh-release@v2
         with:
