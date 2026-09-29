@@ -15,19 +15,24 @@ Options:
   --email              Also emit an image-downscaled -email.pdf variant
   --selector <css>     Explicit CSS selector for sections
   --format <fmt>       Page format: a4 (default) or letter
-  --orientation <o>    Page orientation: landscape (default) or portrait
+  --orientation <o>    Page orientation: portrait (default) or landscape
   --margin <spec>      Margins in inches: N or T,R,B,L (default 0.4,0.5,0.4,0.5)
+  --background <css>   Page background color (default: the source's own)
   --teaser <n>         Only convert the first N sections
   --outline            Add PDF bookmarks (one per section)
   --title <t>          PDF metadata title (default: source <title>)
   --author <a>         PDF metadata author
+  --subject <s>        PDF metadata subject
+  --creator <c>        PDF metadata creator (application)
+  --offline            Block every network request (fonts, images, CDNs)
+  --allow-net <host>   Permit requests to this host (repeatable; wins over the blocklist)
   --probe <text>       Text that must appear on the LAST page (verification)
   --no-verify          Skip the verification pass
   --quiet              Suppress per-section progress lines
   -h, --help           Show this help`;
 
 const args = process.argv.slice(2);
-const VALUED = new Set(['-o', '--out', '--selector', '--format', '--orientation', '--margin', '--teaser', '--title', '--author', '--probe']);
+const VALUED = new Set(['-o', '--out', '--selector', '--format', '--orientation', '--margin', '--background', '--teaser', '--title', '--author', '--subject', '--creator', '--probe']);
 
 function fail(msg) {
   console.error(`tympan: ${msg}\n\n${USAGE}`);
@@ -101,6 +106,8 @@ if (has.has('--orientation')) {
   if (orientation !== 'landscape' && orientation !== 'portrait') fail(`--orientation must be landscape or portrait, got: ${orientation}`);
 }
 
+const allowNet = args.flatMap((a, i) => (a === '--allow-net' && args[i + 1] && !args[i + 1].startsWith('-') ? [args[i + 1]] : []));
+
 let result;
 try {
   result = await convert(path.resolve(input), {
@@ -110,6 +117,11 @@ try {
     format,
     orientation,
     margins,
+    background: has.has('--background') ? get('--background') : undefined,
+    offline: has.has('--offline'),
+    allowNet: allowNet.length ? allowNet : undefined,
+    subject: has.has('--subject') ? get('--subject') : undefined,
+    creator: has.has('--creator') ? get('--creator') : undefined,
     teaser,
     outline: has.has('--outline'),
     title: has.has('--title') ? get('--title') : undefined,

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brief Fixture — Dark Landing</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400&display=swap');
+  :root { --bg: #070b10; --text: #dce8e0; --gold: #c8a84a; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+  .hero {
+    min-height: 620px;
+    background: linear-gradient(170deg, #070b10 0%, #0a141a 60%, #081208 100%);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 48px;
+  }
+  .hero .kicker { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 16px; }
+  .hero h1 { font-size: 64px; font-weight: 300; line-height: 1.05; color: #f0ece4; margin-bottom: 12px; }
+  .hero h1 em { color: var(--gold); font-style: italic; }
+  .hero p { max-width: 500px; font-size: 14px; font-weight: 300; color: #4a6860; line-height: 1.8; }
+  nav.sticky-nav {
+    background: rgba(8,13,18,0.95); border-bottom: 1px solid #1a2830;
+    padding: 12px 24px; display: flex; gap: 16px;
+  }
+  nav.sticky-nav a { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #4a6860; text-decoration: none; }
+  .content { max-width: 1000px; margin: 0 auto; padding: 48px; }
+  section { margin-bottom: 48px; }
+  .sec-title { font-size: 32px; font-weight: 300; color: #f0ece4; margin-bottom: 10px; }
+  .card { background: #0d1318; border: 1px solid #1a2830; border-radius: 4px; padding: 20px 24px; margin-bottom: 12px; }
+  .card p { font-size: 13px; color: #889898; line-height: 1.7; }
+  .question-block { background: #0d1318; border-left: 2px solid var(--gold); padding: 14px 20px; margin-bottom: 10px; }
+  .question-block p { font-size: 14px; color: #f0ece4; }
+  .blocking-question p { font-size: 14px; color: var(--gold); }
+  .footer { border-top: 1px solid #1a2830; padding: 28px 48px; text-align: center; }
+  .footer p { font-size: 13px; color: #4a6860; }
+</style>
+</head>
+<body>
+
+<!-- Hero BEFORE any <section>: page 1 under prelude capture -->
+<div class="hero">
+  <div class="kicker">Fixture · Creative Brief · Planning</div>
+  <h1>Harbor Gardens<br><em>Digital Experience</em></h1>
+  <p>A world-class website brief for a waterfront development. The thinking behind the building — vision, philosophy, pages, interactions, and the questions to answer before code.</p>
+</div>
+
+<nav class="sticky-nav">
+  <a href="#references">① References</a>
+  <a href="#philosophy">② Philosophy</a>
+  <a href="#questions">③ Questions</a>
+</nav>
+
+<div class="content">
+
+<section id="references">
+  <div class="sec-title">What The References Do Right</div>
+  <div class="card"><p>Reference one is a masterclass in cinematic scrollytelling: full-viewport video, deliberate reveals, a near-silent palette. The site feels like entering a vision, not reading a brochure.</p></div>
+  <div class="card"><p>Reference two proves regional luxury can match international standards: editorial serif typography, gold accents, dark backgrounds, absolute confidence.</p></div>
+</section>
+
+<section id="philosophy">
+  <div class="sec-title">Three Rules That Cannot Be Broken</div>
+  <div class="card"><p><strong>Silence is luxury.</strong> Luxury pages leave space; every element must earn its place. Generous padding, restrained sizes, no crowded grids.</p></div>
+  <div class="card"><p><strong>The story moves you.</strong> The visitor is carried through a curated journey rather than left to navigate.</p></div>
+  <div class="card"><p><strong>Earn the trust.</strong> Nothing experimental: flawless performance, real content, working forms from day one.</p></div>
+</section>
+
+<section id="questions">
+  <div class="sec-title">Questions Before We Begin</div>
+  <div class="question-block blocking-question"><p>Q1 — Does the client have an existing brand identity: logo files, official colors, defined typefaces?</p></div>
+  <div class="question-block"><p>Q2 — Who writes the website copy, and when can drafts arrive?</p></div>
+  <div class="question-block"><p>Q3 — What format are the site plans in, and are they geo-referenced?</p></div>
+</section>
+
+</div>
+
+<div class="footer">
+  <p>Harbor Gardens Digital Experience · Planning Instrument · <strong>solo developer roadmap</strong></p>
+</div>
+
+<script>
+  // Runtime-injected (body-level) style: only the body-style carryover keeps it.
+  const st = document.createElement('style');
+  st.textContent = '.footer strong { color: #c8a84a; letter-spacing: 0.5px; }';
+  document.body.appendChild(st);
+</script>
+</body>
+</html>

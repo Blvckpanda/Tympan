@@ -8,8 +8,10 @@ export interface ConvertOptions {
   selector?: string;
   /** Page format. Default "a4". */
   format?: 'a4' | 'letter';
-  /** Page orientation. Default "landscape". */
+  /** Page orientation. Default "portrait" (landscape for slide decks). */
   orientation?: 'landscape' | 'portrait';
+  /** Page background CSS color (default: the source's own html/body background). */
+  background?: string;
   /** Page margins in inches. */
   margins?: { top?: number; bottom?: number; left?: number; right?: number };
   /** Content width in px at which the source page is laid out. */
@@ -38,6 +40,12 @@ export interface ConvertOptions {
   author?: string;
   /** PDF metadata subject. */
   subject?: string;
+  /** PDF metadata creator (producing application). */
+  creator?: string;
+  /** Block every network request (offline conversion). */
+  offline?: boolean;
+  /** Hosts allowed despite the private-network blocklist (SSRF guard). */
+  allowNet?: string[];
   /** Override the detected content max-width (px) of the clean column. */
   contentMaxWidth?: number;
   /** Set false to skip self-verification. Default true. */
@@ -51,7 +59,7 @@ export interface ConvertOptions {
 export interface SectionDetection {
   strategy: 'selector' | 'page-section-class' | 'data-attribute' | 'semantic-children' | 'whole-document';
   confidence: number;
-  sections: Array<{ html: string; id: string }>;
+  sections: Array<{ html: string; id: string; title?: string | null; prelude?: boolean }>;
 }
 
 export interface OutputVerification {
@@ -72,6 +80,8 @@ export interface ConvertResult {
   detection: SectionDetection;
   /** Content max-width (px) detected from the source container and applied. */
   contentMaxWidth: number;
+  /** The resolved page background carried into the output. */
+  background: string;
   /** Verification report (when options.verify !== false). */
   verification: { ok: boolean; sectionCount: number; outputs: OutputVerification[] };
 }

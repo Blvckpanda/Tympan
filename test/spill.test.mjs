@@ -28,7 +28,10 @@ import { printSection, resolveGeometry } from '../src/pipeline.js';
 import { chromium } from 'playwright';
 import { findChromium, launchOptions } from '../src/browser.js';
 
-const GEO = resolveGeometry({});
+// Landscape explicitly: the boundary math below is tuned to the landscape
+// usable height (portrait is the v0.5 default and would make every case here
+// trivially fit).
+const GEO = resolveGeometry({ orientation: 'landscape' });
 // Landscape A4: 8.27in tall, 0.4in margins top+bottom -> 7.47in usable = 717.12 CSS px.
 const USABLE_PX = (GEO.H_IN - GEO.margins.top - GEO.margins.bottom) * 96;
 
