@@ -75,7 +75,7 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
   const page = await browser.newPage({
     viewport: { width: loadW, height: 1200 },
   });
-  const url = pathToFileURL(inputPath).href;
+  const url = /^https?:\/\//i.test(inputPath) ? inputPath : pathToFileURL(inputPath).href;
   const gate = armRequestPolicy(page, {
     offline: opts.offline,
     allowNet: opts.allowNet,
@@ -92,6 +92,12 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
     null,
     { timeout: 60000 }
   );
+  // Custom readiness: wait for a selector the document author controls
+  // (charts drawn by JS, lazily mounted sections). After fonts + images;
+  // throws a clear error on timeout so CI fails loudly.
+  if (opts.waitFor) {
+    await page.waitForSelector(opts.waitFor, { timeout: opts.waitTimeout ?? 10000 });
+  }
   const measured = await page.evaluate(measurePageBackgroundAndWidth, DEFAULT_CONTENT_MAX_WIDTH);
   const background = opts.background || measured.background;
   const contentMaxWidth = opts.contentMaxWidth ?? clampLoadWidth(measured.contentWidth);
@@ -385,13 +391,18 @@ export async function runPassFull(browser, templateHtml, sections, geo, workdir,
 }
 
 /**
- * Deterministic input digest: sha256 over the source bytes plus every
- * option that can change output bytes (deliberately NOT paths or the
- * email image stats). Recorded as the PDF's `tympan:<hash>` keyword.
+ * Deterministic input digest: sha256 over the source bytes (or the URL, for
+ * remote inputs — the fetch happens later, and a changed document behind a
+ * stable URL is a different-input problem, not a determinism bug) plus every
+ * option that can change output bytes. Recorded as the PDF's keyword.
  */
 function hashInput(inputPath, options) {
   const h = crypto.createHash('sha256');
-  h.update(fs.readFileSync(inputPath));
+  if (/^https?:\/\//i.test(inputPath)) {
+    h.update('url\0' + inputPath);
+  } else {
+    h.update(fs.readFileSync(inputPath));
+  }
   h.update('options\0');
   h.update(JSON.stringify([
     options.selector ?? null,
@@ -407,6 +418,8 @@ function hashInput(inputPath, options) {
     options.title ?? null,
     options.author ?? null,
     options.subject ?? null,
+    options.waitFor ?? null,
+    options.waitTimeout ?? null,
   ]));
   return h.digest('hex').slice(0, 16);
 }
@@ -437,9 +450,20 @@ export function resolveGeometry(options = {}) {
   };
 }
 
-/** Resolve final output paths from options and the input path. */
+/** Resolve final output paths from options and the input path or URL. */
 export function resolveOutputs(inputPath, options = {}) {
-  const base = inputPath.replace(/\.html?$/i, '');
+  const isUrl = /^https?:\/\//i.test(inputPath);
+  let base;
+  if (isUrl) {
+    // Derive a filename from the URL path's last segment; fall back sensibly.
+    let seg = '';
+    try {
+      seg = decodeURIComponent(new URL(inputPath).pathname.split('/').filter(Boolean).pop() || '');
+    } catch { /* keep empty */ }
+    base = seg.replace(/\.html?$/i, '') || 'tympan-output';
+  } else {
+    base = inputPath.replace(/\.html?$/i, '');
+  }
   const master = options.out || base + '.pdf';
   const email = options.emailOut || master.replace(/\.pdf$/i, '-email.pdf');
   return { master, email };
@@ -447,7 +471,8 @@ export function resolveOutputs(inputPath, options = {}) {
 
 export async function convert(inputPath, options = {}) {
   const { onProgress } = options;
-  if (!fs.existsSync(inputPath)) {
+  const isUrl = /^https?:\/\//i.test(inputPath);
+  if (!isUrl && !fs.existsSync(inputPath)) {
     throw new Error(`Input not found: ${inputPath}`);
   }
   // Fail fast on bad output locations BEFORE launching the browser / doing
@@ -477,6 +502,8 @@ export async function convert(inputPath, options = {}) {
           loadW: geo.contentW,
           background: options.background,
           contentMaxWidth: options.contentMaxWidth,
+          waitFor: options.waitFor,
+          waitTimeout: options.waitTimeout,
           ...secOpts,
         });
       if (onProgress) onProgress('detected', detection);
@@ -510,6 +537,9 @@ export async function convert(inputPath, options = {}) {
         await gateEml.arm();
         await page.goto(pathToFileURL(inputPath).href, { waitUntil: 'networkidle', timeout: 120000 });
         await page.evaluate(() => document.fonts.ready.then(() => true));
+        if (options.waitFor) {
+          await page.waitForSelector(options.waitFor, { timeout: options.waitTimeout ?? 10000 });
+        }
         const imgStats = await page.evaluate(downscaleImagesInPage, {
           maxW: options.emailMaxWidth || 1600,
           quality: options.emailQuality || 0.82,

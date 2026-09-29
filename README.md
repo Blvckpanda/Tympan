@@ -130,7 +130,14 @@ The pitch as a card (also the repo's social preview — [1280×640](assets/socia
 | `author` / `subject` / `creator` | none | PDF metadata fields |
 | `offline` | off | Block every network request |
 | `allowNet` | none | Hosts permitted despite the private-network blocklist (repeatable) |
+| `waitFor` | none | CSS selector to wait for before printing (charts, JS-mounted content; `--wait-for`) |
+| `waitTimeout` | `10000` | Timeout (ms) for `waitFor` |
 | `verify` | `true` | Self-verification pass (`--no-verify` to skip) |
+
+Diagnostics: `tympan doctor` checks the environment (Node version, exact
+playwright pin vs installed, Chromium, ffmpeg) and exits non-zero on failure;
+`tympan deck.html --json` prints a stable machine-readable report on stdout
+(progress stays on stderr) for CI to consume.
 
 ## How is this different from Playwright / Gotenberg / WeasyPrint?
 
@@ -155,8 +162,11 @@ Where things stand:
   `--offline`/`--allow-net` escapes, links + outline + metadata, email
   variant, preview UI, self-verification with CI exit codes, tag-driven
   releases with provenance and **zero npm tokens**.
-- **v0.6 — the rest of Phase 1:** `--wait-for <selector>` / ready-signal
-  waits, `doctor`, JSON output, presets + config file, batch mode.
+- **Now (v0.6):** `--wait-for <selector>` waits, `tympan doctor`, `--json`
+  reports, URL input. Remaining from Phase 1: presets + config file, batch
+  mode, stdin/glob input.
+- **v0.7+ — standards (Phase 2):** tagged PDF/PDF-UA, PDF/A, size
+  optimization, `lint`, `test` (visual regression for CI).
 - **v0.7+ — standards (Phase 2):** tagged PDF/PDF-UA, PDF/A, size
   optimization, `lint`, `test` (visual regression for CI).
 

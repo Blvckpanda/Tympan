@@ -46,6 +46,10 @@ export interface ConvertOptions {
   offline?: boolean;
   /** Hosts allowed despite the private-network blocklist (SSRF guard). */
   allowNet?: string[];
+  /** Wait for this CSS selector before printing (charts, JS-mounted sections). */
+  waitFor?: string;
+  /** Timeout (ms) for `waitFor`. Default 10000. */
+  waitTimeout?: number;
   /** Override the detected content max-width (px) of the clean column. */
   contentMaxWidth?: number;
   /** Set false to skip self-verification. Default true. */
@@ -82,6 +86,8 @@ export interface ConvertResult {
   contentMaxWidth: number;
   /** The resolved page background carried into the output. */
   background: string;
+  /** Number of requests blocked by the security gate. */
+  blockedRequests: number;
   /** Verification report (when options.verify !== false). */
   verification: { ok: boolean; sectionCount: number; outputs: OutputVerification[] };
 }
@@ -98,3 +104,12 @@ export declare function resolveGeometry(options?: ConvertOptions): {
 };
 
 export declare function findChromium(options?: { executablePath?: string }): string | null;
+
+/** Environment/engine checks behind `tympan doctor`. */
+export declare function enginePin(): { pinned: string | null; installed: string | null; exact: boolean };
+export declare function doctorChecks(env: unknown): Array<{ name: string; ok: boolean; required: boolean; detail: string }>;
+export declare function runDoctor(): { checks: Array<{ name: string; ok: boolean; required: boolean; detail: string }>; summary: { ok: boolean; failed: number }; nodeVersion: string };
+export declare function formatDoctorReport(report: { checks: Array<{ name: string; ok: boolean; required: boolean; detail: string }>; summary: { ok: boolean; failed: number } }): string;
+
+/** Stable machine-readable report for `--json` output. */
+export declare function buildJsonReport(result: unknown, meta?: { input?: string; totalMs?: number }): object;

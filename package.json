@@ -1,6 +1,6 @@
 {
   "name": "tympan",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Deterministic, secure, fast HTML→PDF converter: one semantic section per page, runtime print-CSS defeated, self-verifying output. Zero config.",
   "type": "module",
   "license": "MIT",

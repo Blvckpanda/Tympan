@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-09-29
+
+### Added
+- **`--wait-for <selector>`** (library: `waitFor`, `waitTimeout`): wait for a
+  CSS selector the document author controls before printing — charts drawn
+  by JS, lazily mounted sections. Runs after the fonts and image waits;
+  timeout surfaces a clear error so CI fails loudly. Pinned by a mount test
+  (content rendered 600ms after load must appear in the PDF) and a
+  timeout test.
+- **`--json`** (CLI): a stable machine-readable report on stdout — detection
+  strategy/sections/prelude, output paths, verification per output, blocked
+  request count, `background`, `contentMaxWidth`. Progress stays on stderr;
+  the report is the only stdout content. Serializer is a pure function
+  ([src/report.js](src/report.js)), unit-tested.
+- **`tympan doctor [--json]`**: environment and engine check — Node version,
+  exact playwright pin vs installed version, Chromium discovery
+  (`TYMPAN_CHROMIUM`), ffmpeg (informational). Non-zero exit when a required
+  check fails, so setup scripts and CI can gate on it.
+- **URL input**: `convert('https://example.com/report.html')` and
+  `tympan https://…` now work end to end (output name derived from the URL
+  path; the URL participates in the determinism hash). Completes the spec's
+  "file, URL, stdin, glob" input story one step further.
+- file:// leak E2E: a converted page (top-level http **or** file) can never
+  leak local file content into the PDF. Documents the layering honestly:
+  Chromium pre-blocks page-initiated `file://` subresources before userland
+  route handlers run; the gate's `file://` branch (unit-pinned) is
+  defense-in-depth, while the gate's network blocking is proven live.
+
 ## [0.5.0] - 2026-09-29
 
 ### Changed
