@@ -26,6 +26,10 @@ jobs:
       - run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      # Trusted publishing (OIDC publish) requires npm >= 11.5.1; setup-node
+      # can ship an older npm. Upgrade unconditionally — no-op when current.
+      - name: Upgrade npm (trusted publishing needs >= 11.5.1)
+        run: npm install -g npm@latest
       - name: Pack dry-run guard (whitelist + tarball sanity)
         run: |
           npm pack --dry-run
