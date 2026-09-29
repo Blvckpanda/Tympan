@@ -16,6 +16,8 @@ export { downscaleImagesInPage, mergeFooter } from './email.js';
 export { verifyOutputs } from './verify.js';
 export { isPrivateTarget, armRequestPolicy } from './security.js';
 export { measurePageBackgroundAndWidth, buildCleanTemplate, clampLoadWidth } from './template.js';
+export { enginePin, doctorChecks, summarizeDoctor, runDoctor, formatDoctorReport } from './doctor.js';
+export { buildJsonReport } from './report.js';
 
 /** Re-exported orchestrator as the default export for convenience. */
 export { convert as default } from './pipeline.js';
