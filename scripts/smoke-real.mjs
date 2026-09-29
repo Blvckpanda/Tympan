@@ -1,11 +1,11 @@
 /**
  * smoke-real.mjs — acceptance run against a REAL deck on this machine.
  *
- *   PLATEN_REAL_DECK=path/to/deck.html npm run smoke:real
+ *   TYMPAN_REAL_DECK=path/to/deck.html npm run smoke:real
  *
  * Converts the deck through the library and asserts:
  *   - page count === detected section count on both master and email outputs
- *   - the probe text (PLATEN_REAL_PROBE, or a per-deck default) is on the last
+ *   - the probe text (TYMPAN_REAL_PROBE, or a per-deck default) is on the last
  *     page of both outputs
  *   - the email variant is substantially smaller (image-heavy decks shrink;
  *     the ratio depends on the deck's image entropy)
@@ -17,9 +17,9 @@ import os from 'node:os';
 import { convert } from '../src/index.js';
 import { findChromium } from '../src/browser.js';
 
-const DECK = process.env.PLATEN_REAL_DECK
+const DECK = process.env.TYMPAN_REAL_DECK
   || path.join(os.homedir(), 'Documents', 'deck.html');
-const PROBE = process.env.PLATEN_REAL_PROBE || null;
+const PROBE = process.env.TYMPAN_REAL_PROBE || null;
 
 // The "email variant is smaller" assertion only means something when the deck
 // actually carries raster images to downscale. A text-only deck (webfonts
@@ -31,7 +31,7 @@ const hasRasterImages =
   || /url\([^)]*\.(?:png|jpe?g|gif|webp|avif)/i.test(deckHtml);
 
 if (!fs.existsSync(DECK)) {
-  console.log(`SKIP: no real deck configured (set PLATEN_REAL_DECK); looked at ${DECK}`);
+  console.log(`SKIP: no real deck configured (set TYMPAN_REAL_DECK); looked at ${DECK}`);
   process.exit(0);
 }
 if (!findChromium()) {

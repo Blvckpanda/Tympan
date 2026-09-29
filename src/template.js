@@ -1,7 +1,7 @@
 /**
  * template.js — clean-document builder.
  *
- * The trick that makes platen work where raw Playwright fails: AI bundles
+ * The trick that makes tympan work where raw Playwright fails: AI bundles
  * inject print CSS at runtime (`break-before/after: page`, `100vh` clamps,
  * `@page` caps). Rendering the original document always fragments. Instead,
  * each section is printed from a fresh minimal document that carries only:
@@ -24,7 +24,7 @@ export function buildCleanTemplate(maxWidthPx) {
   // Fallback must be a literal: this function is serialized into the browser
   // and cannot see Node-module constants.
   const max = Number.isFinite(maxWidthPx) && maxWidthPx > 0 ? Math.round(maxWidthPx) : 870;
-  const doc = document.implementation.createHTMLDocument('platen');
+  const doc = document.implementation.createHTMLDocument('tympan');
 
   const firstStyle = document.querySelector('style');
   if (firstStyle) {

@@ -1,45 +1,47 @@
-# platen
+# tympan
 
-[![CI](https://github.com/Blvckpanda/Platen/actions/workflows/ci.yml/badge.svg)](https://github.com/Blvckpanda/Platen/actions/workflows/ci.yml)
-[![Release](https://github.com/Blvckpanda/Platen/actions/workflows/release.yml/badge.svg)](https://github.com/Blvckpanda/Platen/actions/workflows/release.yml)
-[![npm](https://img.shields.io/npm/v/@blvckpanda%2Fplaten)](https://www.npmjs.com/package/@blvckpanda/platen)
-[![MIT license](https://img.shields.io/npm/l/@blvckpanda%2Fplaten)](LICENSE)
+[![CI](https://github.com/Blvckpanda/Tympan/actions/workflows/ci.yml/badge.svg)](https://github.com/Blvckpanda/Tympan/actions/workflows/ci.yml)
+[![Release](https://github.com/Blvckpanda/Tympan/actions/workflows/release.yml/badge.svg)](https://github.com/Blvckpanda/Tympan/actions/workflows/release.yml)
+[![npm](https://img.shields.io/npm/v/@blvckpanda%2Ftympan)](https://www.npmjs.com/package/@blvckpanda/tympan)
+[![MIT license](https://img.shields.io/npm/l/@blvckpanda%2Ftympan)](LICENSE)
 
-Zero-config HTML→PDF converter for **AI-generated documents** — the React/Tailwind
-single-file bundles that AI assistants produce. One semantic section per page,
-runtime print-CSS defeated, self-verifying output.
+**A deterministic, secure, fast HTML→PDF converter that produces verifiable
+PDFs with zero configuration.** One semantic section per page, runtime
+print-CSS defeated, self-verifying output — built for the single-file HTML
+bundles AI assistants produce. The charter is [SPEC.md](SPEC.md); the
+roadmap below is real and staged.
 
-![platen before/after](assets/before-after.gif)
+![tympan before/after](assets/before-after.gif)
 
 Plain Playwright's `page.pdf()` prints whatever the page's print CSS says — which is
 exactly what breaks AI HTML: runtime-injected `@media print` rules force page breaks
-on every section, clamp covers to `100vh`, and cap pages with `@page` rules. platen
+on every section, clamp covers to `100vh`, and cap pages with `@page` rules. tympan
 defeats that pipeline instead of fighting it.
 
 ## Quickstart
 
 ```bash
-npx @blvckpanda/platen deck.html
+npx @blvckpanda/tympan deck.html
 # deck.pdf + deck-email.pdf, one section per page, links clickable, verified
 ```
 
-Or install the `platen` command globally:
+Or install the `tympan` command globally:
 
 ```bash
-npm install -g @blvckpanda/platen
-platen deck.html
+npm install -g @blvckpanda/tympan
+tympan deck.html
 ```
 
 Preview it locally while you edit:
 
 ```bash
-npm run ui        # or: npx -p @blvckpanda/platen platen-ui  (local server, live reload, PDF pane)
+npm run ui        # or: npx -p @blvckpanda/tympan tympan-ui  (local server, live reload, PDF pane)
 ```
 
 Library:
 
 ```js
-import { convert } from '@blvckpanda/platen';
+import { convert } from '@blvckpanda/tympan';
 const { master, email, detection, verification } = await convert('deck.html', {
   email: true,
   outline: true,
@@ -49,18 +51,34 @@ if (!verification.ok) throw new Error('verification failed');
 ```
 
 Requires Node ≥ 20 and a Chromium binary (`npx playwright install chromium`, or point
-`PLATEN_CHROMIUM` at any chrome executable).
+`TYMPAN_CHROMIUM` at any chrome executable).
+
+## Why it wins
+
+1. **Reproducible:** same input, same bytes — under the exact-pinned engine
+   (after the v0.5 metadata/IDs pass, see the roadmap).
+2. **Safe on untrusted HTML by default:** `file://` reads and private-IP
+   fetches are blocked (v0.5). Loosening is explicit.
+3. **Diagnostics that say exactly what broke:** per-section progress,
+   page-count and probe verification, non-zero exit codes for CI.
+4. **Correct output:** selectable text, clickable links, bookmarks outline,
+   metadata — verified, not assumed.
+
+And the principle under all of it: **never trust a measurement.** Sections
+are printed, the artifact is inspected, and the scale shrinks until the
+one-page invariant *holds* — late webfonts and print rounding can't produce
+sliver pages. A regression test pins this ([test/spill.test.mjs](test/spill.test.mjs)).
 
 ## Screenshots
 
-**platen ui** — paste HTML or watch a local file, watch sections convert one by
+**tympan ui** — paste HTML or watch a local file, watch sections convert one by
 one, read the result in the browser's native PDF viewer:
 
-![platen ui converting a three-section document](assets/aipdf-ui.png)
+![tympan ui converting a three-section document](assets/tympan-ui.png)
 
 The pitch as a card (also the repo's social preview — [1280×640](assets/social-card.png)):
 
-<p align="center"><img src="assets/social-card.png" alt="platen social card" width="560"></p>
+<p align="center"><img src="assets/social-card.png" alt="tympan social card" width="560"></p>
 
 ## What it does
 
@@ -100,10 +118,29 @@ The pitch as a card (also the repo's social preview — [1280×640](assets/socia
 | Playwright / Puppeteer | Chromium | whatever the page's print CSS dictates — often broken | no | no |
 | Gotenberg | Chromium (Docker API) | same as Playwright | no | no |
 | WeasyPrint / Dompdf | no JS — cannot render AI bundles at all | — | — | — |
-| **platen** | Chromium (via Playwright) | **defeats runtime print CSS by cloning each section into a clean document** | **guaranteed, with auto-shrink** | **built in, exit codes for CI** |
+| **tympan** | Chromium (via Playwright) | **defeats runtime print CSS by cloning each section into a clean document** | **guaranteed, with auto-shrink** | **built in, exit codes for CI** |
 
-platen is an opinionated *layer* on Chromium, not a new engine: the value is the
+tympan is an opinionated *layer* on Chromium, not a new engine: the value is the
 pipeline, not the renderer.
+
+## Roadmap
+
+The staged plan lives in [SPEC.md](SPEC.md) (phases §4, adoption decisions §10).
+Where things stand:
+
+- **Now (v0.4.x):** the reliable core — one section per page, closed-loop
+  shrink-to-fit (regression-tested), links + outline + metadata, email
+  variant, preview UI, self-verification with CI exit codes, tag-driven
+  releases with provenance.
+- **v0.5 — determinism & security:** fixed timestamps and IDs in the output,
+  request interception (block `file://`, private/metadata IPs; offline mode),
+  `--wait-for <selector>` / ready-signal waits, `doctor`, JSON output,
+  presets + config file, batch mode.
+- **v0.6+ — standards:** tagged PDF/PDF-UA, PDF/A, size optimization,
+  `lint`, `test` (visual regression for CI).
+
+Non-goals (from the spec): our own layout engine, a GUI, a general PDF
+editor, Word/PowerPoint conversion, OCR, AI in the render path.
 
 ## Limitations (honest ones)
 
@@ -115,6 +152,8 @@ pipeline, not the renderer.
   what's *not* preserved is print-only styling.
 - One section = one page is a hard rule: an overfull section shrinks to fit rather
   than flowing onto a second page.
+- Byte-identical output is a *goal* (v0.5), not yet a property: Chromium embeds
+  varying IDs/timestamps until the post-process pass lands.
 
 ## Contributing & releasing
 
@@ -125,9 +164,10 @@ Releases are cut by version tags; the process lives in
 
 ## Status
 
-v0.3.3 is on npm: full CLI, clickable links preserved through the merge, PDF
-outline + metadata, the local preview UI, and tag-driven release automation
-with provenance. See [CHANGELOG](CHANGELOG.md) for the roadmap.
+v0.4.0 is on npm: full CLI, clickable links preserved through the merge, PDF
+outline + metadata, the local preview UI, tag-driven release automation
+with provenance, and the spec adopted as the project charter. See
+[CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 

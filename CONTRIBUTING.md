@@ -1,4 +1,4 @@
-# Contributing to platen
+# Contributing to tympan
 
 Thanks for helping! This repo is small and direct: short-lived feature
 branches, PRs into `main`, CI must be green before merge.
@@ -17,7 +17,7 @@ npx playwright install chromium
 ```bash
 npm test          # unit + browser-level tests (browser tests skip without Chromium)
 npm run smoke     # hostile fixture -> PDF -> verification, exit code asserted
-npm run smoke:real  # optional: converts a real deck if PLATEN_REAL_DECK is set (see the script)
+npm run smoke:real  # optional: converts a real deck if TYMPAN_REAL_DECK is set (see the script)
 npm run ui        # optional: start the preview UI and click around
 ```
 
@@ -45,7 +45,7 @@ validated with Chromium installed locally or via the CI smoke step.
 | `src/verify.js` | output verification (pdfjs text probe) |
 | `src/browser.js` | Chromium discovery across platforms |
 | `src/ui/server.js` | zero-dep preview UI server |
-| `bin/platen.js`, `bin/platen-ui.js` | thin CLI wrappers over the library |
+| `bin/tympan.js`, `bin/tympan-ui.js` | thin CLI wrappers over the library |
 | `test/fixtures/*.html` | deterministic fixtures (see `scripts/gen-image-fixture.mjs`) |
 
 In-page functions (`detectSectionsInPage`, `buildCleanTemplate`,

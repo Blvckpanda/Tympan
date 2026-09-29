@@ -37,7 +37,7 @@ jobs:
       - name: GitHub Release (attach tarball)
         uses: softprops/action-gh-release@v2
         with:
-          files: platen-*.tgz
+          files: tympan-*.tgz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

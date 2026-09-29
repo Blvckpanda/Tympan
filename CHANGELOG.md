@@ -4,6 +4,44 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-29
+
+### Changed
+- **Renamed the project to tympan** — the padded sheet on a printing press
+  that presses the paper against the type (SPEC §9). The package publishes
+  as **`@blvckpanda/tympan`** (scoped names skip npm's typosquat similarity
+  filter entirely — the lesson from the `aipdf` → `jspdf` rejection); the
+  installed commands are `tympan` and `tympan-ui`; the repo is
+  github.com/Blvckpanda/Tympan. The Chromium override environment variable
+  is now `TYMPAN_CHROMIUM`; the acceptance runner's are `TYMPAN_REAL_DECK`
+  / `TYMPAN_REAL_PROBE`.
+- **Adopted the product spec as [SPEC.md](SPEC.md)** — verbatim, plus an
+  "Adoption decisions" section recording every deviation and why:
+  blocklist-over-allowlist security defaults, the exact-pinned Playwright
+  engine contract, JavaScript through v1, the honest byte-determinism
+  claim, and section-per-page as the default strategy. README positioning
+  now leads with the spec's wedge: deterministic, secure, fast.
+- The `playwright` dependency is exact-pinned (`1.63.0`, no caret): a
+  floating engine is a rendering change in disguise.
+
+### Fixed
+- **Text probes no longer fail on extraction whitespace.** pdfjs joins text
+  items with unstable gaps ("solo   developer"), so any multi-word `--probe`
+  could miss text that is visibly on the last page. Probes are now
+  case-insensitive and whitespace-flexible: every space in the probe matches
+  any whitespace run in the extracted text. String probes also match
+  *literally* now (metacharacters escaped) — they are text to find, not
+  patterns to compile; pass an explicit RegExp for regex semantics.
+
+### Added
+- **Regression test for the shrink-to-fit spill fix.** A tall-text fixture
+  with a late-applying webfont (injected after `fonts.ready` and the
+  height measurement, but before the print — the exact race that produced
+  sliver second pages before v0.3.3) must still convert to exactly one
+  page per section: boundary-height and oversized variants, plus an
+  end-to-end three-section run. Pins the closed print→count→shrink loop so
+  this bug class cannot return silently.
+
 ## [0.2.0] - 2026-09-28
 
 ### Fixed

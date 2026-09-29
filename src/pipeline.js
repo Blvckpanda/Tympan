@@ -34,7 +34,7 @@ export const DEFAULT_MARGINS = { top: 0.4, bottom: 0.4, left: 0.5, right: 0.5 };
 
 /** Temp workspace for per-section PDFs (caller cleans up). */
 export function makeWorkdir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'platen-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-'));
 }
 
 /**

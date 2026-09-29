@@ -1,42 +1,41 @@
-# Publishing @blvckpanda/platen to npm
+# Publishing @blvckpanda/tympan to npm
 
 Publishing is automated: pushing a version tag (`v*`) triggers
 [.github/workflows/release.yml](.github/workflows/release.yml), which packs,
 publishes with [provenance](https://docs.npmjs.com/generating-provenance), and
-creates a GitHub Release with the tarball. Until the `NPM_TOKEN` secret is set,
-the workflow runs but **skips the publish step** — the GitHub Release still
-happens.
+creates a GitHub Release with the tarball.
 
-## One-time setup
+**Current state: trusted publishing (no `NPM_TOKEN`).** Since v0.4.1 the
+workflow authenticates to npm with [trusted
+publishing](https://docs.npmjs.com/trusted-publishers) — OIDC from GitHub
+Actions — so the repository has **no npm token secret at all**. The publish
+step runs unconditionally (there is no `if: env.NPM_TOKEN != ''` guard left
+to skip it) and provenance is generated automatically without a
+`--provenance` flag. Requirements, all satisfied: npm CLI ≥ 11.5.1 on the
+runner (setup-node 22 provides it) and `id-token: write` in the workflow.
 
-1. **npm granular access token** — created on the npmjs.com website (no
-   terminal login needed):
-   * npmjs.com → avatar → *Access Tokens* → *Generate New Token* →
-     **Granular Access Token**.
-   * **Token name**: something identifiable, e.g. `platen_ci_token`.
-   * **Expiration**: 90 days (rotate on schedule; npm is tightening
-     token-bypass-2FA publishing over 2026–2027 — see the migration note
-     below).
-   * **Packages and scopes**: **Read and write**.
-   * **Package selection**: **All packages** — per-package selection cannot
-     authorize a package that doesn't exist yet, and the *first* publish
-     creates `@blvckpanda/platen`. After the first release you may rotate to
-     a token scoped to just that package.
-   * **Enable "bypass 2FA" on the token.** This is the step that breaks CI
-     publishes when missed: if the account requires 2FA and the token doesn't
-     carry the bypass, npm rejects the publish with `EOTP` ("requires a
-     one-time password") no matter how valid the token is. The toggle only
-     exists at token-creation time.
-   * *Generate Token* → copy the `npm_…` value (shown exactly once).
+## One-time setup (done 2026-09-29, kept for reference)
 
-2. **Give the repo the token as a secret** — via the GitHub web UI
-   (the REST API route requires encrypting the secret with libsodium, which
-   the web UI does for you):
-   * github.com → the repo → *Settings* → *Secrets and variables* → *Actions*
-     → **New repository secret**.
-   * Name: `NPM_TOKEN` · Value: paste the `npm_…` token → *Add secret*.
+1. **First publish needs the package to exist.** v0.4.0 was published the
+   old way (a granular token with **bypass 2FA** enabled — without that
+   flag npm rejects with `EOTP`; the toggle only exists at token-creation
+   time) plus the `NPM_TOKEN` repository secret.
+2. **Add the trusted publisher** on npmjs.com — no API for this, web only:
+   * npmjs.com → *Packages* → `@blvckpanda/tympan` → *Settings* →
+     **Trusted publisher** → *Connect a publisher* → **GitHub Actions**.
+   * Organization/user: `Blvckpanda` · Repository: `Tympan` ·
+     Workflow filename: `release.yml` · Environment: leave empty.
+   * Save. From now on, that exact workflow can publish without any token.
+3. **Delete the token secret** (web UI or API):
+   github.com → repo → *Settings* → *Secrets and variables* → *Actions* →
+   `NPM_TOKEN` → remove. Also revoke the now-unused token on npmjs.com →
+   *Access Tokens*.
+4. **Remove the publish guard from the workflow** — with the secret gone,
+   an `if: env.NPM_TOKEN != ''` guard would silently *skip* the publish
+   step while the job still shows green. The guard must be removed in the
+   same commit as the first token-free tag.
 
-## Why the package is scoped (`@blvckpanda/platen`)
+## Why the package is scoped (`@blvckpanda/tympan`)
 
 npm's typosquat protection rejects new **unscoped** names that are too
 similar to existing packages — *at publish time*, even when the name is
@@ -44,7 +43,7 @@ unused and resolvable. `aipdf` (too close to `jspdf`) and every short paper
 word (`ream`, `deckle`, bare `platen` — squatted) were rejected or taken.
 Scoped names skip the similarity filter entirely and can never be collided
 or squatted. The `@blvckpanda/` prefix just names the publisher. The
-installed **command is still `platen`**.
+installed **commands are `tympan` and `tympan-ui`**.
 
 ## Cutting a release
 
@@ -59,52 +58,58 @@ installed **command is still `platen`**.
    **Watch out:** *any* `v*` tag fires the release workflow — never push a
    tag for a version that is already on npm (duplicate versions are rejected
    by the registry) and never push tags you didn't intend to release.
-3. Watch the run: repo → *Actions* → **Release**. Publish requires the
-   `NPM_TOKEN` secret; without it the step shows as skipped while the GitHub
-   Release still lands.
+3. Watch the run: repo → *Actions* → **Release**. Check the **Publish**
+   step's own conclusion (a job can be green while a step was skipped —
+   verify per-step in the run's job view).
 
 ## Verify the release
 
 ```bash
-npm view @blvckpanda/platen version      # registry has the new version
-npm view @blvckpanda/platen bin          # platen + platen-ui declared
+npm view @blvckpanda/tympan version      # registry has the new version
+npm view @blvckpanda/tympan bin          # tympan + tympan-ui declared
 cd "$(mktemp -d)"
-npx @blvckpanda/platen --help            # installs from the registry and runs
+npx @blvckpanda/tympan@latest --help     # installs from the registry and runs
 ```
 
-(`platen-ui` starts a server and blocks by design — verify it via the bins
-listing above, or `npm run ui` in a checkout. After a global install both
-`platen` and `platen-ui` are on PATH.)
+(A newly *renamed or created* package can 404 for ~1–2 minutes while the
+CDN catches up — retry before assuming failure. `tympan-ui` starts a server
+and blocks by design; verify it via the bins listing, or `npm run ui` in a
+checkout. After a global install both commands are on PATH.)
 
-On npmjs.com → *Packages* → `@blvckpanda/platen`, the package page should
-show the **Provenance** badge on the release — that's the public, verifiable
-link between the published artifact and this repo's build.
+On npmjs.com → *Packages* → `@blvckpanda/tympan`, the release page shows
+the **Provenance** badge — the public, verifiable link between the
+published artifact and this repo's build. Under trusted publishing it
+appears automatically.
 
 ## Failure modes (all observed at least once)
 
-- **Publish step skipped** — `NPM_TOKEN` secret is missing/unset; add it and
-  re-run the workflow from the Actions tab (re-run is safe: npm rejects
-  duplicate versions, so a half-published release can't corrupt the registry).
-- **`EOTP` / "requires a one-time password"** — the token lacks the
-  **bypass 2FA** flag (it can only be set when the token is created). Create
-  a new token with the flag on and update the secret; re-run is safe.
+- **Publish step skipped** — historical (pre-0.4.1): the `NPM_TOKEN` guard.
+  The guard is gone; if a future edit re-adds any `if:` on the publish
+  step, a missing secret will fail loudly instead (`npm publish` without
+  auth errors out) — that is the desired behavior.
+- **`EOTP` / "requires a one-time password"** — historical (token era):
+  the token lacked the **bypass 2FA** flag. Gone with trusted publishing.
 - **`E403` "Package name too similar to existing package"** — the typosquat
   filter rejecting an unscoped name at publish time. Nothing to override:
-  pick a scoped name (that's why this package is `@blvckpanda/platen`).
-- **403 on publish (other)** — token lacks write permission/scopes, doesn't
-  cover the package, or expired (granular tokens carry an expiration date).
-- **Provenance error** — provenance requires public packages + OIDC; the
-  workflow already sets `id-token: write`. It also requires
-  `repository` in `package.json` to point at the repo the workflow ran in —
-  keep the `repository`/`homepage`/`bugs` fields in sync if the repo moves.
+  pick a scoped name (that's why this package is `@blvckpanda/tympan`).
+- **403 on publish under trusted publishing** — the trusted-publisher
+  entry doesn't match: repo name, owner, or workflow filename must equal
+  the workflow actually running (`release.yml` on `Blvckpanda/Tympan`), or
+  the run lacks `id-token: write` / OIDC. Re-check the package's settings
+  page and the workflow's `permissions:` block.
+- **404 right after publish** — CDN lag (see above), not a failure.
+- **Provenance error** — requires a public package + OIDC + `repository`
+  in `package.json` pointing at the repo the workflow ran in. Keep the
+  `repository`/`homepage`/`bugs` fields in sync if the repo ever moves.
 
-## Migration note: trusted publishing (before Jan 2027)
+## Repo front page (launch checklist)
 
-npm is sunsetting tokens that bypass 2FA for direct publishing (account
-changes restricted Aug 2026, direct publishing Jan 2027). The endgame is
-[trusted publishing](https://docs.npmjs.com/trusted-publishers/): the
-workflow already carries `id-token: write`, so once the package exists, add
-a trusted publisher on the package's npm settings page
-(user `Blvckpanda`, repo `Platen`, workflow `release.yml`) and the publish
-becomes token-free with provenance generated automatically. Then the
-`NPM_TOKEN` secret can be revoked and the token class problem disappears.
+- **About description + website:** repo → ⚙ next to *About* → description:
+  *"Deterministic, secure, fast HTML→PDF converter — one section per page,
+  self-verifying output, zero flags. CLI + library."* → website:
+  `https://www.npmjs.com/package/@blvckpanda/tympan` → Topics: `pdf`,
+  `html`, `converter`, `chromium`, `cli`, `automation`. (Set via API; the
+  web path above edits the same fields.)
+- **Social preview (web UI only, no API):** repo → *Settings* → *General*
+  → **Social preview** → *Edit* → *Upload a new image* → pick
+  [assets/social-card.png](assets/social-card.png) (1280×640) → *Save*.

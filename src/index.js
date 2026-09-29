@@ -2,7 +2,7 @@
  * index.js — public library entry point.
  *
  * @example
- *   import { convert } from '@blvckpanda/platen';
+ *   import { convert } from '@blvckpanda/tympan';
  *   const { master, email, detection, verification } = await convert('deck.html', {
  *     email: true,
  *     probe: /www\.example\.city/,

@@ -1,7 +1,7 @@
 node_modules/
 *.log
 out/
-.platen-work/
+.tympan-work/
 .env
 .env.local
 .DS_Store

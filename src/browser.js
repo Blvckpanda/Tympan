@@ -1,9 +1,9 @@
 /**
- * browser.js — Chromium discovery for platen.
+ * browser.js — Chromium discovery for tympan.
  *
  * Resolution order:
  *   1. explicit override in options (testability)
- *   2. PLATEN_CHROMIUM environment variable
+ *   2. TYMPAN_CHROMIUM environment variable
  *   3. Playwright-managed browser cache (newest chromium-* build), scanned for
  *      a real chrome executable on Windows / macOS / Linux
  *   4. null — callers surface a clear "run npx playwright install chromium"
@@ -65,10 +65,10 @@ function cacheRoots() {
  * @returns {string|null} absolute path, or null when nothing usable was found
  */
 export function findChromium(options = {}) {
-  const explicit = options.executablePath || process.env.PLATEN_CHROMIUM;
+  const explicit = options.executablePath || process.env.TYMPAN_CHROMIUM;
   if (explicit) {
     if (!fs.existsSync(explicit)) {
-      throw new Error(`PLATEN_CHROMIUM points to a missing file: ${explicit}`);
+      throw new Error(`TYMPAN_CHROMIUM points to a missing file: ${explicit}`);
     }
     return explicit;
   }
@@ -86,7 +86,7 @@ export function launchOptions(options = {}) {
   const exe = findChromium(options);
   if (!exe) {
     throw new Error(
-      'Chromium not found. Run `npx playwright install chromium`, or point PLATEN_CHROMIUM at a chrome executable.'
+      'Chromium not found. Run `npx playwright install chromium`, or point TYMPAN_CHROMIUM at a chrome executable.'
     );
   }
   return {

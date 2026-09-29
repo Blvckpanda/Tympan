@@ -1,5 +1,5 @@
 /**
- * platen — zero-config HTML→PDF converter for AI-generated documents.
+ * tympan — deterministic, secure, fast HTML→PDF converter.
  * One semantic section per page, runtime print-CSS defeated, self-verifying.
  */
 
@@ -24,7 +24,9 @@ export interface ConvertOptions {
   out?: string;
   /** Output path for the email PDF (default: master with -email suffix). */
   emailOut?: string;
-  /** Text probe (string or RegExp source) asserted against the last page. */
+  /** Text probe (string matched literally, or RegExp) asserted against the
+   *  last page; case-insensitive and whitespace-flexible (extraction gaps
+   *  of any width count as one space). */
   probe?: string;
   /** Only convert the first N sections (teaser/summary PDF). */
   teaser?: number;
@@ -40,7 +42,7 @@ export interface ConvertOptions {
   contentMaxWidth?: number;
   /** Set false to skip self-verification. Default true. */
   verify?: boolean;
-  /** Path to a Chromium executable (else PLATEN_CHROMIUM / Playwright cache). */
+  /** Path to a Chromium executable (else TYMPAN_CHROMIUM / Playwright cache). */
   executablePath?: string;
   /** Progress callback: (event, data). */
   onProgress?: (event: string, data: unknown) => void;

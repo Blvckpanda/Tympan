@@ -1,5 +1,5 @@
 /**
- * unit.test.mjs — DOM-free unit tests for platen's pure helpers.
+ * unit.test.mjs — DOM-free unit tests for tympan's pure helpers.
  * Run: npm test   (node:test)
  */
 import test from 'node:test';
@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { resolveGeometry, resolveOutputs } from '../src/pipeline.js';
 import { mergeFooter } from '../src/email.js';
 import { describeDetection } from '../src/detect.js';
+import { probeRegex } from '../src/verify.js';
 
 test('resolveGeometry: landscape A4 defaults', () => {
   const g = resolveGeometry({});
@@ -69,4 +70,23 @@ test('describeDetection formats strategy and confidence', () => {
     describeDetection({ strategy: 'whole-document', confidence: 0.2, sections: [{}] }),
     '1 section (whole-document, 20%)'
   );
+});
+
+test('probeRegex: survives unstable extraction whitespace and case', () => {
+  // The extraction artifact that broke real-deck probes (0.4.0 finding):
+  // pdfjs joins put 1-3 spaces between words of the same sentence.
+  const text = 'challenging for   a   solo   developer working on a timeline.';
+  assert.ok(probeRegex('solo developer').test(text));
+  assert.ok(probeRegex('SOLO DEVELOPER').test(text));
+  assert.ok(probeRegex(/solo developer/).test(text));
+  assert.ok(probeRegex('for a solo').test(text));
+  assert.ok(!probeRegex('solo typographer').test(text));
+});
+
+test('probeRegex: string probes match literally, regex probes stay regexes', () => {
+  assert.ok(probeRegex('Q10 (Your Personal Scope)').test('Q10 (Your Personal Scope) begins')); // ( ) are text, not groups
+  assert.ok(!probeRegex('Q10 (Your Personal Scope)').test('Q10 X')); // not a wildcard pattern
+  assert.ok(probeRegex(/Q\d/).test('Q7 — something')); // explicit regex keeps semantics
+  assert.ok(probeRegex(/a b c/).test('a  b   c')); // literal spaces in a regex source are flexed
+  assert.ok(probeRegex(/a {2}b/).test('a  b')); // space before a quantifier stays the quantified atom (no throw)
 });

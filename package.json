@@ -1,20 +1,20 @@
 {
-  "name": "@blvckpanda/platen",
-  "version": "0.3.3",
-  "description": "Zero-config HTML→PDF converter for AI-generated documents: one semantic section per page, runtime print-CSS defeated, self-verifying output.",
+  "name": "@blvckpanda/tympan",
+  "version": "0.4.0",
+  "description": "Deterministic, secure, fast HTML→PDF converter: one semantic section per page, runtime print-CSS defeated, self-verifying output. Zero config.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Blvckpanda/Platen.git"
+    "url": "git+https://github.com/Blvckpanda/Tympan.git"
   },
-  "homepage": "https://github.com/Blvckpanda/Platen#readme",
+  "homepage": "https://github.com/Blvckpanda/Tympan#readme",
   "bugs": {
-    "url": "https://github.com/Blvckpanda/Platen/issues"
+    "url": "https://github.com/Blvckpanda/Tympan/issues"
   },
   "bin": {
-    "platen": "bin/platen.js",
-    "platen-ui": "bin/platen-ui.js"
+    "tympan": "bin/tympan.js",
+    "tympan-ui": "bin/tympan-ui.js"
   },
   "exports": {
     ".": {
@@ -37,12 +37,13 @@
     "test": "node --test",
     "smoke": "node scripts/smoke.mjs",
     "smoke:real": "node scripts/smoke-real.mjs",
-    "ui": "node bin/platen-ui.js"
+    "ui": "node bin/tympan-ui.js"
   },
   "keywords": [
     "html",
     "pdf",
     "converter",
+    "deterministic",
     "ai",
     "generated",
     "chromium",
@@ -54,6 +55,6 @@
   "dependencies": {
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "3.11.174",
-    "playwright": "^1.61.1"
+    "playwright": "1.63.0"
   }
 }
