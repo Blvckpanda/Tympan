@@ -1,0 +1,59 @@
+{
+  "name": "aipdf",
+  "version": "0.3.3",
+  "description": "Zero-config HTML→PDF converter for AI-generated documents: one semantic section per page, runtime print-CSS defeated, self-verifying output.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Blvckpanda/aipdf.git"
+  },
+  "homepage": "https://github.com/Blvckpanda/aipdf#readme",
+  "bugs": {
+    "url": "https://github.com/Blvckpanda/aipdf/issues"
+  },
+  "bin": {
+    "aipdf": "bin/aipdf.js",
+    "aipdf-ui": "bin/aipdf-ui.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "types/",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:real": "node scripts/smoke-real.mjs",
+    "ui": "node bin/aipdf-ui.js"
+  },
+  "keywords": [
+    "html",
+    "pdf",
+    "converter",
+    "ai",
+    "generated",
+    "chromium",
+    "playwright",
+    "sections",
+    "deck",
+    "proposal"
+  ],
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "3.11.174",
+    "playwright": "^1.61.1"
+  }
+}
