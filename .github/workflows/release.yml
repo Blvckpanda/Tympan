@@ -1,0 +1,43 @@
+name: Release
+
+# Publishes to npm when a version tag (v*) is pushed. Publishing requires the
+# NPM_TOKEN repository secret; without it the publish step is skipped cleanly
+# (the GitHub Release with the tarball still happens). See PUBLISHING.md.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the GitHub Release and attach the tarball
+  id-token: write # npm provenance (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Pack dry-run guard (whitelist + tarball sanity)
+        run: |
+          npm pack --dry-run
+          npm pack
+      - name: Publish to npm (skipped when NPM_TOKEN is not configured)
+        if: ${{ env.NPM_TOKEN != '' }}
+        run: npm publish --provenance --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: GitHub Release (attach tarball)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: aipdf-*.tgz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
