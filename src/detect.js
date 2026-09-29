@@ -127,6 +127,74 @@ export function detectSectionsInPage(selector) {
   };
 }
 
+/**
+ * DOM-side prelude capture (serialized by pipeline.js): the document's own
+ * opening content — hero, cover — before the first detected <section>, as
+ * one serialized fragment. Files are NOT split (a <div class="hero"> plus a
+ * <header> form one prelude), inline styles stay, <script> is dropped
+ * (scroll/animation chrome is meaningless on paper), <link rel="stylesheet">
+ * hrefs are kept (buildCleanTemplate re-resolves them). Scroll chrome —
+ * nav bars, banners, cookie rails — is excluded by the significance test.
+ * The most heading-like descendant supplies the page title.
+ * @returns {{html: string, title: string|null}|null}
+ */
+export function capturePreludeInPage() {
+  const first = document.querySelector('main section, section, article, [data-page], [data-slide], main .page-section');
+  if (!first) return null;
+  const SKIP = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'NOSCRIPT', 'TEMPLATE']);
+  const isSignificant = (el) => {
+    if (el.closest('nav, header .sticky-nav, [role="navigation"]')) return false;
+    if (!el.textContent || !el.textContent.trim()) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width * r.height < 2000) return false;
+    if (r.width >= window.innerWidth * 0.9 && r.height <= 80) return false; // nav/banner rail
+    if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') return false; // display:none
+    return true;
+  };
+  const chunks = [];
+  let node = document.body.firstElementChild;
+  // Node.contains() (not compareDocumentPosition): unambiguous descendant
+  // test — the bit-flag version misread container relationships and once
+  // chunked the whole <main> into the prelude (found on the images deck).
+  while (node) {
+    if (node.contains(first)) {
+      // first lives inside this container: its earlier child siblings are
+      // prelude; the walk stops at the child that IS or CONTAINS first
+      // (that child is content, and chunking it would duplicate sections).
+      for (const child of Array.from(node.children)) {
+        if (child === first || child.contains(first)) break;
+        if (isSignificant(child)) chunks.push(child);
+      }
+      break;
+    }
+    if (isSignificant(node)) chunks.push(node);
+    node = node.nextElementSibling;
+  }
+  const html = chunks.map((el) => el.outerHTML).join('\n').trim();
+  if (!html) return null;
+  const root = document.createElement('div');
+  root.innerHTML = html;
+  const h = root.querySelector('h1, h2, h3, h4, h5, h6');
+  const raw = (h && h.textContent) || document.title || '';
+  const title = raw ? raw.replace(/\s+/g, ' ').trim().slice(0, 80) || null : null;
+  return { html, title };
+}
+
+/**
+ * Node-side: insert the captured prelude fragment as page 1, BEFORE the
+ * sections (they follow untouched — total pages = 1 + section count).
+ * @param {Array<{html: string, id?: string, title?: string}>} sections
+ * @param {{html: string, title: string|null}|null} prelude
+ * @returns {Array} [prelude, ...sections], or sections unchanged
+ */
+export function withPrelude(sections, prelude) {
+  if (!prelude || !prelude.html || !sections.length) return sections;
+  return [
+    { html: prelude.html, id: 'prelude', title: prelude.title, prelude: true },
+    ...sections,
+  ];
+}
+
 /** Summary line for CLI/progress output: `12 sections (data-attribute, 85%)`. */
 export function describeDetection(detection) {
   const n = detection.sections.length;

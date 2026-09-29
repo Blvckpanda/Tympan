@@ -4,6 +4,74 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-09-29
+
+### Changed
+- **Portrait is the default orientation** (A4 portrait, 595×842pt). Web
+  documents are written top-down; portrait is the sheet they mean. Landscape
+  stays one flag away for slide decks: `--orientation landscape` (or the UI
+  toggle). This is the visible flip of the release — re-run old commands and
+  expect tall pages.
+- **The output looks like your document.** Fidelity fixes driven by a real
+  dark-themed creative brief that converted to a washed-out landscape PDF:
+  - The source's **page background** (computed `html`/`body` color, or its
+    gradient) is measured and carried into the clean template, and each final
+    page is painted with the solid base color under the content — margins
+    included. `--background <css>` (library: `background`) overrides.
+  - **Pre-section content becomes page 1.** Hero/cover markup before the first
+    detected section (and the trailing footer band on the last page) is now
+    part of the output; previously the hero was silently dropped. Detection
+    distinguishes content from scroll chrome (nav bars, banners) by geometry.
+  - The **load viewport comes from the source's own content width** (clamped
+    700–1100px) instead of a hardcoded landscape width, so `clamp()` headings
+    and grid columns reflow the way the author saw them.
+  - Runtime-injected **body-level `<style>` tags** now survive section
+    extraction (only the first head style was carried before).
+  - Print scale now fits the **width** too: sections wider than the text area
+    shrink instead of being silently right-clipped.
+- **Deterministic output, proven:** identical input + options produce
+  **byte-identical PDFs** under the pinned engine. Fixed metadata epoch,
+  input-derived trailer `/ID`, and a `tympan:<hash>` Keywords entry over the
+  source bytes and output-affecting options. Verified by a twice-convert
+  sha256 test on fixtures and on a real 8-page document.
+- **Secure by default** (the spec's second wedge): untrusted documents cannot
+  read local files (non-top-level `file://` requests are blocked) or reach
+  private/link-local networks — including cloud-metadata endpoints
+  (169.254.169.254, fd00:ec2::254). Every block is counted and reported
+  (`blockedRequests` in the result, `blocked` progress events). Escapes are
+  explicit: `--offline` blocks all network, `--allow-net <host>` permits
+  named hosts (repeatable, wins over the blocklist).
+- **PDF Producer is now `tympan <version>`** — pdf-lib's save-time overwrite
+  is bypassed (`updateMetadata: false`), so the trailer no longer credits the
+  wrong tool. Author/Subject/Creator metadata wired through CLI
+  (`--author/--subject/--creator`) and library.
+- `git rm`'d the committed 190 KB base64 image fixture: photo-like fixtures
+  are generated at test time into gitignored `test/out/`
+  ([scripts/gen-image-fixture.mjs](scripts/gen-image-fixture.mjs)) — the
+  committed pattern also could not discriminate the email-variant shrink.
+
+### Fixed
+- **The email pass no longer clobbers the master.** The per-pass workfile was
+  renamed to a constant in the determinism pass, so with `email: true` the
+  second pass overwrote the first and both outputs were the email variant
+  (the email-size "tie" in tests was this bug wearing a trenchcoat).
+- Real-deck acceptance page-count expectation now accounts for the prelude
+  page.
+
+### Added
+- Demo GIF of the live UI flow ([assets/demo.gif](assets/demo.gif)); social
+  card and UI shot re-shot under the v0.5 fidelity story.
+- CLI: `--background`, `--offline`, `--allow-net`, `--subject`, `--creator`;
+  UI: orientation + background controls. Library docs updated in
+  [types/index.d.ts](types/index.d.ts).
+- Fidelity/determinism/security regression suite
+  ([test/fidelity.test.mjs](test/fidelity.test.mjs)) on a dark-portrait
+  structural fixture ([test/fixtures/brief-dark.html](test/fixtures/brief-dark.html)).
+
+### Removed
+- The old landscape default (see above) — the one intentional breaking
+  change; everything else is additive.
+
 ## [0.4.2] - 2026-09-29
 
 ### Changed

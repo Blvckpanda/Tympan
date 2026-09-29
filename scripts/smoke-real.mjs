@@ -56,7 +56,9 @@ const result = await convert(DECK, {
 console.log(`strategy: ${result.detection.strategy} (${result.detection.sections.length} sections)`);
 console.log(`contentMaxWidth: ${result.contentMaxWidth}px`);
 
-const expected = result.detection.sections.length;
+// The converted page count includes the prelude page (pre-section hero), so
+// trust the pipeline's own expectation rather than the raw section count.
+const expected = result.verification?.outputs?.[0]?.expected ?? result.detection.sections.length;
 for (const o of result.verification?.outputs || []) {
   console.log(`${path.basename(o.file)}: ${o.pages}/${o.expected} pages, probe=${o.probeOk}, ${(o.sizeBytes / 1048576).toFixed(1)} MB`);
 }

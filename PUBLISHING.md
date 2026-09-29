@@ -5,6 +5,20 @@ Publishing is automated: pushing a version tag (`v*`) triggers
 publishes with [provenance](https://docs.npmjs.com/generating-provenance), and
 creates a GitHub Release with the tarball.
 
+## npm housekeeping (web UI, no tokens involved)
+
+Post-migration cleanup, all on npmjs.com (the CLI path needs no auth — the
+repo publishes via OIDC and any local legacy token is already dead):
+
+1. **Deprecate the scoped alias** (points people at the real package):
+   *Packages* → `@blvckpanda/tympan` → *Versions* → ⚙ on **0.4.0** →
+   *Deprecate* → message:
+   `tympan is now unscoped - use npm i tympan (https://www.npmjs.com/package/tympan)`
+2. **Revoke legacy access tokens**: avatar → *Access Tokens* → delete
+   `aipdf_ci_bypass` (and anything else unused). Bypass-2FA tokens are being
+   sunset by npm anyway (account changes Aug 2026, direct publishing Jan
+   2027) — this repo needs none.
+
 **Current state: trusted publishing, no npm token anywhere.** Since v0.4.2
 the repository has **no npm token secret at all**: the publish step runs
 unconditionally (the old `if: env.NPM_TOKEN != ''` guard is gone — with a

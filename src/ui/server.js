@@ -59,6 +59,10 @@ const PAGE = `<!DOCTYPE html>
     <div class="row">
       <label>…or paste HTML</label>
       <textarea id="html" placeholder="&lt;main&gt;&lt;section class=&quot;page-section&quot;&gt;…&lt;/section&gt;&lt;/main&gt;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <label>orientation <select id="orientation"><option value="portrait">portrait</option><option value="landscape">landscape</option></select></label>
+        <label>background <input type="text" id="background" size="10" placeholder="auto"></label>
+      </div>
       <button id="convert">Convert</button>
     </div>
     <div class="state" id="status"></div>
@@ -89,7 +93,11 @@ const PAGE = `<!DOCTYPE html>
   document.getElementById('convert').onclick = () => {
     const html = document.getElementById('html').value.trim();
     if (!html) { status('paste some HTML first'); return; }
-    convert({ html });
+    convert({
+      html,
+      orientation: document.getElementById('orientation').value,
+      background: document.getElementById('background').value.trim() || undefined,
+    });
   };
   document.getElementById('watch').onclick = () => {
     const file = document.getElementById('file').value.trim();
@@ -128,7 +136,7 @@ export function createUiServer(options = {}) {
     for (const res of state.clients) res.write(frame);
   };
 
-  async function runConvert(inputPath, html) {
+  async function runConvert(inputPath, html, orientation, background) {
     let tempInput = null;
     try {
       if (html != null) {
@@ -138,6 +146,8 @@ export function createUiServer(options = {}) {
       }
       const result = await convert(inputPath, {
         out: state.master,
+        orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
+        background: background || undefined,
         onProgress: (event, data) => emit(event, data),
       });
       state.ready = true;
@@ -209,11 +219,11 @@ export function createUiServer(options = {}) {
       } else if (req.method === 'POST' && url.pathname === '/convert') {
         const payload = await readJson(req, res);
         if (!payload) return;
-        const { html, path: filePath } = payload;
+        const { html, path: filePath, orientation, background } = payload;
         if (html == null && (!filePath || !fs.existsSync(filePath))) {
           return json(res, 400, { ok: false, error: 'provide html or a valid path' });
         }
-        return json(res, 200, await runConvert(filePath, html));
+        return json(res, 200, await runConvert(filePath, html, orientation, background));
       } else if (req.method === 'POST' && url.pathname === '/watch') {
         const payload = await readJson(req, res);
         if (!payload) return;

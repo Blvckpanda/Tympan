@@ -29,18 +29,24 @@ test('links survive the merge, outline + metadata land', { skip }, async () => {
     const doc = await PDFDocument.load(fs.readFileSync(result.master));
     assert.equal(doc.getPageCount(), 2);
 
-    // 1. Hyperlinks survive: every page carries its URI link annotation.
-    let linkCount = 0;
+    // 1. Hyperlinks survive: both destination URIs are reachable from the
+    // annotations. (Counting annotations is fragile — a link whose text
+    // wraps across lines yields one annotation rect per line, so the
+    // contract is the URI SET, not the annotation count.)
+    const uris = new Set();
     for (const page of doc.getPages()) {
       const annots = page.node.Annots();
       if (!annots) continue;
       for (let i = 0; i < annots.size(); i++) {
         const a = annots.lookup(i);
         const subtype = a.get(PDFName.of('Subtype'));
-        if (subtype && subtype.toString() === '/Link') linkCount++;
+        if (!subtype || subtype.toString() !== '/Link') continue;
+        const action = a.lookup(PDFName.of('A'));
+        const uri = action && action.lookup(PDFName.of('URI'));
+        if (uri) uris.add(uri.decodeText ? uri.decodeText() : String(uri));
       }
     }
-    assert.equal(linkCount, 2, 'link annotations preserved');
+    assert.deepEqual([...uris].sort(), ['https://example.com/', 'https://example.org/'], 'both link destinations preserved');
 
     // 2. Outline exists with 2 entries (Count on the Outlines dict).
     const outlines = doc.catalog.lookup(PDFName.of('Outlines'));

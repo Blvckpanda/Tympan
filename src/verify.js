@@ -36,9 +36,15 @@ function getPdfjs() {
     }
   }
   return pdfjs;
-}
-
-async function lastPageText(file) {
+}/**
+ * Extract the text of every page (1-based order). Whitespace is collapsed:
+ * pdfjs splits words into separate text items and Chromium letter-spacing
+ * widens the gaps, so multi-word matching must stay whitespace-flexible
+ * (probeRegex handles the pattern side).
+ * @param {string} file
+ * @returns {Promise<string[]>} one string per page
+ */
+export async function extractPages(file) {
   const data = new Uint8Array(fs.readFileSync(file));
   const doc = await getPdfjs().getDocument({
     data,
@@ -46,13 +52,18 @@ async function lastPageText(file) {
     disableFontFace: true,
     verbosity: 0,
   }).promise;
-  const page = await doc.getPage(doc.numPages);
-  const tc = await page.getTextContent();
-  // Extraction whitespace is unstable: pdfjs splits words into separate text
-  // items and Chromium letter-spacing widens the gaps, so "solo developer"
-  // can come back as "solo   developer". Collapse runs to single spaces;
-  // probeRegex() adds matching flexibility on the pattern side.
-  return tc.items.map((t) => t.str).join(' ').replace(/\s+/g, ' ');
+  const texts = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    texts.push(tc.items.map((t) => t.str).join(' ').replace(/\s+/g, ' '));
+  }
+  return texts;
+}
+
+async function lastPageText(file) {
+  const texts = await extractPages(file);
+  return texts[texts.length - 1] || '';
 }
 
 /**
