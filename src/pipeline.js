@@ -24,6 +24,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { PDFDocument, PDFName, PDFHexString } from 'pdf-lib';
 import { launchOptions } from './browser.js';
@@ -74,7 +75,7 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
   const page = await browser.newPage({
     viewport: { width: loadW, height: 1200 },
   });
-  const url = 'file:///' + encodeURI(inputPath.replace(/\\/g, '/'));
+  const url = pathToFileURL(inputPath).href;
   const gate = armRequestPolicy(page, {
     offline: opts.offline,
     allowNet: opts.allowNet,
@@ -505,9 +506,9 @@ export async function convert(inputPath, options = {}) {
       if (options.email) {
         if (onProgress) onProgress('print-email', {});
         const page = await browser.newPage({ viewport: { width: geo.contentW, height: 1200 } });
-        const gateEml = armRequestPolicy(page, { ...secOpts, mainUrl: 'file:///' + encodeURI(inputPath.replace(/\\/g, '/')) });
+        const gateEml = armRequestPolicy(page, { ...secOpts, mainUrl: pathToFileURL(inputPath).href });
         await gateEml.arm();
-        await page.goto('file:///' + encodeURI(inputPath.replace(/\\/g, '/')), { waitUntil: 'networkidle', timeout: 120000 });
+        await page.goto(pathToFileURL(inputPath).href, { waitUntil: 'networkidle', timeout: 120000 });
         await page.evaluate(() => document.fonts.ready.then(() => true));
         const imgStats = await page.evaluate(downscaleImagesInPage, {
           maxW: options.emailMaxWidth || 1600,
