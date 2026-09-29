@@ -51,7 +51,7 @@ const CARD_HTML = `<!DOCTYPE html>
     <div class="checks">
       <div><span>✓</span>page count === section count, verified</div>
       <div><span>✓</span>text selectable · hyperlinks clickable</div>
-      <div><span>✓</span>zero flags &nbsp;·&nbsp; npx @blvckpanda/tympan deck.html</div>
+      <div><span>✓</span>zero flags &nbsp;·&nbsp; npx tympan deck.html</div>
     </div>
   </div>
   <div class="right">

@@ -1,6 +1,6 @@
 {
-  "name": "@blvckpanda/tympan",
-  "version": "0.4.0",
+  "name": "tympan",
+  "version": "0.4.1",
   "description": "Deterministic, secure, fast HTML→PDF converter: one semantic section per page, runtime print-CSS defeated, self-verifying output. Zero config.",
   "type": "module",
   "license": "MIT",

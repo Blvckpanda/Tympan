@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/Blvckpanda/Tympan/actions/workflows/ci.yml/badge.svg)](https://github.com/Blvckpanda/Tympan/actions/workflows/ci.yml)
 [![Release](https://github.com/Blvckpanda/Tympan/actions/workflows/release.yml/badge.svg)](https://github.com/Blvckpanda/Tympan/actions/workflows/release.yml)
-[![npm](https://img.shields.io/npm/v/@blvckpanda%2Ftympan)](https://www.npmjs.com/package/@blvckpanda/tympan)
-[![MIT license](https://img.shields.io/npm/l/@blvckpanda%2Ftympan)](LICENSE)
+[![npm](https://img.shields.io/npm/v/tympan)](https://www.npmjs.com/package/tympan)
+[![MIT license](https://img.shields.io/npm/l/tympan)](LICENSE)
 
 **A deterministic, secure, fast HTML→PDF converter that produces verifiable
 PDFs with zero configuration.** One semantic section per page, runtime
@@ -21,27 +21,27 @@ defeats that pipeline instead of fighting it.
 ## Quickstart
 
 ```bash
-npx @blvckpanda/tympan deck.html
+npx tympan deck.html
 # deck.pdf + deck-email.pdf, one section per page, links clickable, verified
 ```
 
 Or install the `tympan` command globally:
 
 ```bash
-npm install -g @blvckpanda/tympan
+npm install -g tympan
 tympan deck.html
 ```
 
 Preview it locally while you edit:
 
 ```bash
-npm run ui        # or: npx -p @blvckpanda/tympan tympan-ui  (local server, live reload, PDF pane)
+npm run ui        # or: npx -p tympan tympan-ui  (local server, live reload, PDF pane)
 ```
 
 Library:
 
 ```js
-import { convert } from '@blvckpanda/tympan';
+import { convert } from 'tympan';
 const { master, email, detection, verification } = await convert('deck.html', {
   email: true,
   outline: true,

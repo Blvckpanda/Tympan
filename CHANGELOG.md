@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-09-29
+
+### Changed
+- **The package is now unscoped: `npm install tympan`.** The name `tympan`
+  was always the spec's first choice (SPEC §9) and free on the registry;
+  the `@blvckpanda/` scope was purely defensive after npm's typosquat
+  filter rejected the earlier working name at publish time. Scoped names
+  skip that filter, so the scope existed to get *a* name out — with the
+  final name verified free, the package ships as plain **`tympan`**. The
+  scoped package `@blvckpanda/tympan@0.4.0` remains published as a stable
+  alias; it will be deprecated once the unscoped line is proven.
+- The release workflow's publish step is no longer skipped when
+  `NPM_TOKEN` is absent (the `if:` guard removed): under npm trusted
+  publishing the workflow authenticates via OIDC and needs no npm token
+  secret at all. `NPM_TOKEN` remains set only as a fallback while the
+  trusted publisher is re-pointed at the unscoped package; it is deleted
+  in 0.4.2.
+
 ## [0.4.0] - 2026-09-29
 
 ### Changed

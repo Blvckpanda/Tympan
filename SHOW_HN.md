@@ -35,7 +35,7 @@ Recommended: #1 — names the tool, states the outcome, no hype.
 > a webfont after the fonts-ready signal and asserts the section still
 > holds one page.
 >
-> Usage: `npx @blvckpanda/tympan deck.html`
+> Usage: `npx tympan deck.html`
 >
 > It is an opinionated layer on headless Chromium, not a new rendering engine —
 > WeasyPrint-class tools can't run the JS these bundles need, and Gotenberg
