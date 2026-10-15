@@ -29,6 +29,15 @@ npx tympan brief.html
 Landscape for slide decks: `npx tympan deck.html --orientation landscape`.
 Force a page color: `--background "#04060a"`. Fully offline: `--offline`.
 
+Several documents, patterns, and pipes all work:
+
+```bash
+npx tympan "invoices/*.html" -o dist/        # glob → one PDF per match, into dist/
+npx tympan a.html b.html                    # a.pdf + b.pdf through one warm browser
+cat brief.html | npx tympan - -o brief.pdf  # the document comes from stdin
+npx tympan brief.html -o - > brief.pdf      # the PDF goes to stdout
+```
+
 Or install the `tympan` command globally:
 
 ```bash
@@ -133,11 +142,54 @@ The pitch as a card (also the repo's social preview — [1280×640](assets/socia
 | `waitFor` | none | CSS selector to wait for before printing (charts, JS-mounted content; `--wait-for`) |
 | `waitTimeout` | `10000` | Timeout (ms) for `waitFor` |
 | `verify` | `true` | Self-verification pass (`--no-verify` to skip) |
+| `browser` | launched | Reuse an already-launched browser across conversions (batch) |
+| `perInput` | none | `convertMany`: per-input option overrides (typically `out`) |
+| `goldenDir` | `.tympan/golden` | `tympan test` baseline directory (`--golden`) |
+| `update` | off | `tympan test`: record baselines instead of comparing (`--update`) |
+| `tolerance` | `0.02` | `tympan test`: share of fingerprint cells allowed to differ |
 
 Diagnostics: `tympan doctor` checks the environment (Node version, exact
 playwright pin vs installed, Chromium, ffmpeg) and exits non-zero on failure;
 `tympan deck.html --json` prints a stable machine-readable report on stdout
 (progress stays on stderr) for CI to consume.
+
+## Batch, stdin, globs
+
+Several inputs convert through **one warm browser** — one Chromium launch for
+however many documents you hand over, sequentially (printing is CPU-bound; order
+and output bytes stay deterministic).
+
+```bash
+tympan "invoices/*.html" -o dist/      # quoted glob → one PDF per match, into dist/
+tympan a.html b.html                   # a.pdf + b.pdf beside their sources
+cat brief.html | tympan - -o brief.pdf # stdin; relative refs resolve in the cwd
+tympan brief.html -o - > brief.pdf     # stdout; nothing written behind your back
+```
+
+Rules: `-o` names a file for one input, and a **directory** when there are several
+inputs or the path ends in a separator (created if it does not exist yet); `-`
+streams to stdout (one input, no `--json`). A pattern that matches nothing is an
+error, never a silent skip. A document that fails does not abandon the rest of
+the batch: every input is reported, and the exit code is non-zero if any failed.
+
+## Visual regression: `tympan test`
+
+Text extraction cannot see a dropped background, a collapsed grid, or a figure
+that stopped rendering. `tympan test` converts each input, fingerprints every
+rendered page into a small RGB grid, and compares it with a recorded baseline:
+
+```bash
+tympan test "reports/*.html" --update      # record baselines, review the PNGs, commit them
+tympan test "reports/*.html"               # exit 1 on any visual change
+tympan test report.html -o review/         # keep the generated PDFs while you diff
+tympan test report.html --tolerance 0.05   # allow 5% of cells to differ
+```
+
+Baselines live in `.tympan/golden/<input>-<hash>/pNNN.png` — one viewable PNG per
+page, so reviewing a diff is `open` on the file the report names. A shrinking
+document fails (`stale baseline`), and a geometry change (format/orientation) is
+reported as such instead of being squashed to fit. Rasterization uses pdfjs
+(already a dependency) inside Chromium: no new package, no server, no port.
 
 ## How is this different from Playwright / Gotenberg / WeasyPrint?
 
@@ -162,13 +214,10 @@ Where things stand:
   `--offline`/`--allow-net` escapes, links + outline + metadata, email
   variant, preview UI, self-verification with CI exit codes, tag-driven
   releases with provenance and **zero npm tokens**.
-- **Now (v0.6):** `--wait-for <selector>` waits, `tympan doctor`, `--json`
-  reports, URL input. Remaining from Phase 1: presets + config file, batch
-  mode, stdin/glob input.
-- **v0.7+ — standards (Phase 2):** tagged PDF/PDF-UA, PDF/A, size
-  optimization, `lint`, `test` (visual regression for CI).
-- **v0.7+ — standards (Phase 2):** tagged PDF/PDF-UA, PDF/A, size
-  optimization, `lint`, `test` (visual regression for CI).
+- **Now (v0.7):** batch input through one warm browser, quoted-glob patterns,
+  stdin (`-`) and stdout (`-o -`), and `tympan test` pixel-golden regression.
+  Remaining from Phase 1: presets + config file.
+- **Phase 2 — standards:** tagged PDF/PDF-UA, PDF/A, size optimization, `lint`.
 
 Non-goals (from the spec): our own layout engine, a GUI, a general PDF
 editor, Word/PowerPoint conversion, OCR, AI in the render path.
@@ -194,10 +243,13 @@ Releases are cut by version tags; the process lives in
 
 ## Status
 
-v0.5.0 is on npm: portrait + fidelity, proven determinism, secure defaults,
-full CLI, clickable links preserved through the merge, PDF outline +
-metadata, the local preview UI, and tag-driven release automation with
-provenance. See [CHANGELOG](CHANGELOG.md) for history.
+v0.7.0 completes the spec's Phase 1 input story — **file, URL, stdin, glob**, and
+batch conversion through one warm browser — and adds `tympan test` for visual
+regression in CI. Earlier releases: portrait + fidelity, proven determinism,
+secure defaults, `--wait-for`/`doctor`/`--json` diagnostics, clickable links
+preserved through the merge, PDF outline + metadata, the local preview UI, and
+tag-driven release automation with provenance. See
+[CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 

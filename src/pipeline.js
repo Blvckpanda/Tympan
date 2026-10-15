@@ -486,7 +486,11 @@ export async function convert(inputPath, options = {}) {
   const geo = resolveGeometry(options);
   const workdir = makeWorkdir();
   try {
-    const browser = await chromium.launch(launchOptions(options));
+    // A caller-supplied browser (batch runs reuse one launch) outlives this
+    // call; one we launched ourselves is closed here. Two try levels, two
+    // ownership rules: the inner one owns the browser, the outer the workdir.
+    const owned = options.browser ? null : await chromium.launch(launchOptions(options));
+    const browser = options.browser || owned;
     try {
       if (onProgress) onProgress('start', { inputPath });
       // Count every blocked request centrally and pass the wrapped progress
@@ -574,9 +578,57 @@ export async function convert(inputPath, options = {}) {
       }
       return result;
     } finally {
-      await browser.close();
+      if (owned) await browser.close();
     }
   } finally {
     fs.rmSync(workdir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Convert several inputs through ONE warm Chromium launch.
+ *
+ * Batch runs pay browser startup once instead of per file. A failure is
+ * contained: the remaining inputs still convert, every entry carries its own
+ * ok/error. Sequential on purpose — Chromium printing is CPU-bound, so
+ * parallel jobs buy little and cost determinism.
+ *
+ * An entry is `ok` only when the conversion succeeded AND self-verification
+ * passed (page count, spill guard, probe), so callers can gate CI on `ok`
+ * exactly as they gate on the single-input exit code.
+ *
+ * @param {string[]} inputs file paths or URLs
+ * @param {object} [options] convert() options, plus
+ *   perInput?: (input: string, index: number) => object — per-input overrides
+ *   (typically `out`, since a batch has no single output path)
+ * @returns {Promise<{ok: boolean, entries: Array<{input: string, ok: boolean,
+ *   result: object|null, error: string|null}>}>}
+ */
+export async function convertMany(inputs, options = {}) {
+  const list = (Array.isArray(inputs) ? inputs : [inputs]).filter((i) => i != null);
+  if (list.length === 0) throw new Error('convertMany: no inputs');
+  const { perInput, ...shared } = options;
+  const owned = shared.browser ? null : await chromium.launch(launchOptions(shared));
+  const browser = shared.browser || owned;
+  const entries = [];
+  try {
+    for (let i = 0; i < list.length; i++) {
+      const input = list[i];
+      const overrides = perInput ? perInput(input, i) || {} : {};
+      // A per-input progress handler (the golden runner) speaks for itself.
+      if (shared.onProgress && !overrides.onProgress) {
+        shared.onProgress('batch-input', { input, index: i + 1, total: list.length });
+      }
+      try {
+        const result = await convert(input, { ...shared, ...overrides, browser });
+        const verified = !result.verification || result.verification.ok !== false;
+        entries.push({ input, ok: verified, result, error: verified ? null : 'verification failed' });
+      } catch (e) {
+        entries.push({ input, ok: false, result: null, error: (e && e.message) || String(e) });
+      }
+    }
+  } finally {
+    if (owned) await browser.close();
+  }
+  return { ok: entries.every((e) => e.ok), entries };
 }
