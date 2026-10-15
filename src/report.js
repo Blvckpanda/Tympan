@@ -14,6 +14,17 @@
  * @returns {object} JSON-serializable report
  */
 export function buildJsonReport(result, meta = {}) {
+  return jsonReportFor(result, meta);
+}
+
+/**
+ * Per-document report body (shared by single and batch reports, so a consumer
+ * parses one shape for both).
+ * @param {object} result
+ * @param {object} meta
+ * @returns {object}
+ */
+function jsonReportFor(result, meta = {}) {
   const d = result.detection || {};
   return {
     ok: !result.verification || result.verification.ok === true,
@@ -43,5 +54,29 @@ export function buildJsonReport(result, meta = {}) {
           })),
         }
       : null,
+  };
+}
+
+/**
+ * Build the batch (`--json`) report from a convertMany() result: one entry per
+ * input, each the same shape as buildJsonReport so consumers reuse one parser.
+ * A failed input keeps its `input` and gains `ok:false`/`error` instead of
+ * being dropped — a batch report must account for every input it was given.
+ * @param {object} batch convertMany() result {ok, entries}
+ * @param {object} [meta] { totalMs }
+ * @returns {object} JSON-serializable report
+ */
+export function buildBatchJsonReport(batch, meta = {}) {
+  const results = (batch?.entries || []).map((entry) =>
+    entry.ok
+      ? jsonReportFor(entry.result, { input: entry.input })
+      : { ok: false, input: entry.input, error: entry.error ?? 'conversion failed' }
+  );
+  return {
+    ok: results.every((r) => r.ok),
+    count: results.length,
+    failed: results.filter((r) => !r.ok).length,
+    totalMs: meta.totalMs ?? null,
+    results,
   };
 }

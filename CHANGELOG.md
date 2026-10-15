@@ -4,6 +4,61 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-15
+
+### Added
+- **Batch input: several documents, one warm browser.** `tympan a.html b.html`
+  (or `tympan "docs/*.html" -o dist/`) converts every input through a single
+  Chromium launch instead of one launch per file. Each document reports its own
+  ok/error, a failure does not abandon the rest of the batch, and the exit code
+  is non-zero when any input failed. Library: `convertMany(inputs, { perInput })`;
+  report: `buildBatchJsonReport` (`{ ok, count, failed, results[] }`, each entry
+  the same shape as the single-document `--json`).
+- **Quoted glob patterns.** `tympan "docs/**/*.html"` expands in-CLI (`*`, `?`,
+  `[...]`, `**`) — Windows shells and quoted arguments pass patterns through
+  unexpanded, so `tympan "docs/*.html"` used to look for a file literally named
+  `*.html`. Dependency-free matcher ([src/glob.js](src/glob.js)), sorted output so
+  batch order never depends on `readdir()`, duplicates collapsed, and a pattern
+  that matches nothing is an **error** rather than a silent skip.
+- **stdin (`-`) and stdout (`-o -`).** `cat brief.html | tympan - -o brief.pdf`
+  reads the document from stdin (materialized in the working directory, so
+  relative images and stylesheets resolve exactly as they would for a file in the
+  shell's directory); `tympan brief.html -o - > brief.pdf` streams the PDF to
+  stdout without writing anything behind the user. `--json` and `-o -` refuse to
+  share stdout, and `--email` has no file name to hang `-email.pdf` off of.
+- **`tympan test` — pixel-golden regression.** Converts each input, turns every
+  rendered page into a 96px-wide RGB fingerprint and compares it with a recorded
+  baseline in `.tympan/golden/` (a viewable PNG per page): `--update` records,
+  `--tolerance` sets how much difference is still "the same page" (default 2% of
+  cells), `-o <dir>` keeps the generated PDFs so a diff can be reviewed.
+  Catches what text extraction cannot — a dropped background, a collapsed grid, a
+  figure that stopped rendering. A shrunken document fails (`stale baseline`), and
+  a geometry change is reported as such instead of being squashed to fit.
+  Rasterization runs pdfjs (already a dependency) inside Chromium: no new package,
+  no HTTP server, no port to clean up.
+- `--flag=value`, `--` to end flag parsing, and unknown options now fail loudly
+  instead of being ignored.
+
+### Fixed
+- **`--allow-net <host>` no longer swallows the input.** Its value was left
+  unconsumed, so `tympan --allow-net 127.0.0.1 deck.html` tried to convert
+  `127.0.0.1` and silently ignored the real file.
+- **URL inputs survive the CLI's file check.** A URL was resolved as a path
+  (`.../http:/host/doc.html`) and rejected as "input not found" before the
+  pipeline ever saw it: the v0.6 URL input worked from the library only. A
+  URL-shaped argument is now also never glob-expanded (a query string's `?`
+  would have read as a wildcard).
+- **stdin's default output is `stdin.pdf`**, not a name borrowed from the
+  scratch file the user never typed.
+- A `file://` argument now says the scheme is unsupported and to pass a path,
+  instead of reporting a missing file.
+
+### Changed
+- `bin/tympan.js` is an orchestration script again: flag/value parsing moved to
+  [src/argv.js](src/argv.js) and pattern expansion to [src/glob.js](src/glob.js),
+  both pure and unit-tested. `--json` reports (and a `-o -` PDF) are written with
+  a flushed stdout, so `process.exit()` can no longer truncate a piped write.
+
 ## [0.6.0] - 2026-09-29
 
 ### Added

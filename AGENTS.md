@@ -20,8 +20,11 @@ spec + adoption decisions in §10); history in [CHANGELOG.md](CHANGELOG.md).
 | `src/report.js` | `--json` report serializer (pure) |
 | `src/browser.js` | Chromium discovery (`TYMPAN_CHROMIUM` env override, Playwright cache scan) |
 | `src/ui/server.js` + `bin/tympan-ui.js` | zero-dep preview UI (SSE progress, live reload) |
-| `bin/tympan.js` | thin CLI wrapper (flags incl. --wait-for/--json; `tympan doctor`) |
-| `test/*.test.mjs` | node:test suites; spill pins shrink-to-fit; fidelity pins portrait/bg/determinism/security; phase1 pins waits/doctor/json/file-leak E2E |
+| `src/argv.js` | CLI flag/value parsing (pure: returns data + `errors`, no I/O) |
+| `src/glob.js` | glob expansion for CLI inputs (`*`, `?`, `[...]`, `**`); pure matcher, sorted expansion, URLs pass through verbatim |
+| `src/golden.js` | `tympan test`: page fingerprints, baseline record/compare, pure `compareFingerprints`, in-page rasterizers |
+| `bin/tympan.js` | thin CLI wrapper (subcommands `doctor`/`test`; multi-input, stdin, glob, -o routing) |
+| `test/*.test.mjs` | node:test suites; spill pins shrink-to-fit; fidelity pins portrait/bg/determinism/security; phase1 pins waits/doctor/json/file-leak E2E; inputs pins glob+argv; batch pins multi-input/stdin/stdout E2E; golden pins record/match/diff/stale |
 | `scripts/smoke-real.mjs` | real-deck acceptance (`TYMPAN_REAL_DECK` / `TYMPAN_REAL_PROBE`) |
 | `scripts/capture-assets.mjs` | re-shoots `assets/tympan-ui.png` + `assets/social-card.png` + `assets/demo.gif` (ffmpeg) |
 | `scripts/gen-image-fixture.mjs` | test-time photo-like image fixture generator (writes into gitignored test/out/) |
@@ -48,6 +51,13 @@ spec + adoption decisions in §10); history in [CHANGELOG.md](CHANGELOG.md).
   defense-in-depth. Assert the user-facing guarantee (no leak, gate engaged
   for network requests) rather than exact blocked-counts; Chromium also
   retries aborted image requests, so counts can exceed one.
+- **One browser per run, two ownership rules.** `convert()` launches a browser
+  and closes it; `convertMany()` launches once and hands the warm browser down
+  through `options.browser`. The inner `finally` closes only what it launched
+  (the `owned` flag) — a caller-supplied browser must outlive the call.
+- **URL-shaped arguments are never paths.** `src/glob.js#isUrlInput` keeps them
+  out of `path.resolve` (which yields `.../http:/host/doc.html`) and out of glob
+  matching (a query string's `?` reads as a wildcard).
 - **Playwright is exact-pinned** (no caret) — a floating engine is a silent
   rendering change. Bump deliberately, run the full gates, note it in the
   CHANGELOG.
@@ -63,7 +73,7 @@ spec + adoption decisions in §10); history in [CHANGELOG.md](CHANGELOG.md).
 
 ```bash
 node --check <every touched .js/.mjs>
-npm test            # 40 tests; browser tests skip without Chromium/network
+npm test            # 63 tests; browser tests skip without Chromium/network
 tympan doctor       # or: node bin/tympan.js doctor  (env/engine check, non-zero on failure)
 npm run smoke       # hostile fixture end-to-end, exit code asserted
 TYMPAN_REAL_DECK=... TYMPAN_REAL_PROBE=... npm run smoke:real   # optional, real deck
