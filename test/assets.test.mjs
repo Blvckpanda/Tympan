@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { convert } from '../src/pipeline.js';
+import { findChromium } from '../src/browser.js';
 import { analyzeFlowPdf } from '../src/flow.js';
 import { resolveGeometry } from '../src/pipeline.js';
 import { resolveLocalAssets } from '../src/assets.js';
@@ -23,7 +24,8 @@ const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-assets-'));
 const fixture = (name) => path.join(FIXTURES, name);
 const out = (name) => path.join(OUT, name);
 
-test('a local sibling image is inlined and really painted into the PDF', async () => {
+test('a local sibling image is inlined and really painted into the PDF', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('asset-sibling.html'), { out: out('sibling.pdf'), flow: true });
   // gate blocked it during load, then Node inlined it before detection ran
   assert.ok(r.assetInlining.inlined === 1, `expected 1 inlined asset, got ${r.assetInlining.inlined}`);
@@ -40,7 +42,8 @@ test('a local sibling image is inlined and really painted into the PDF', async (
   assert.ok(withImages.length > 0, 'the data URI image made it into the printed bytes');
 });
 
-test('section mode gets the same fix (data URI carries through the section HTML)', async () => {
+test('section mode gets the same fix (data URI carries through the section HTML)', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('asset-sibling.html'), { out: out('sibling-section.pdf') });
   assert.equal(r.layout, 'section');
   assert.equal(r.assetInlining.inlined, 1);

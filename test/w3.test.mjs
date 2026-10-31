@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { convert, resolveGeometry } from '../src/pipeline.js';
+import { findChromium } from '../src/browser.js';
 import { extractPages } from '../src/verify.js';
 import { analyzeFlowPdf, flowCss, verifyFlow, mapSectionsToPages, flowOutlineEntries } from '../src/flow.js';
 import { buildTocHtml, estimateTocPages, escapeHtml } from '../src/toc.js';
@@ -25,7 +26,8 @@ const out = (name) => path.join(OUT, name);
 
 /* ---------------------------------------------------------------- pages */
 
-test('a running footer is printed by the engine and extracted from the PDF', async () => {
+test('a running footer is printed by the engine and extracted from the PDF', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('flow-prose.html'), {
     out: out('footer.pdf'), flow: true, pageNumbers: true, pageFooter: 'Kitch Wrapped Draft',
   });
@@ -37,7 +39,8 @@ test('a running footer is printed by the engine and extracted from the PDF', asy
   }
 });
 
-test('a preset running footer resolves from the document title at run time', async () => {
+test('a preset running footer resolves from the document title at run time', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   // flow-prose's <title> is "flow prose" (the document's own casing is kept)
   const r = await convert(fixture('flow-prose.html'), { out: out('preset-footer.pdf'), preset: 'contract' });
   const pages = await extractPages(r.master);
@@ -48,7 +51,8 @@ test('a preset running footer resolves from the document title at run time', asy
 
 /* ------------------------------------------------------------------ toc */
 
-test('generated TOC lists every section on the sheet it really prints to', async () => {
+test('generated TOC lists every section on the sheet it really prints to', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('flow-prose.html'), { out: out('toc.pdf'), flow: true, toc: true });
   assert.equal(r.toc.stable, true, `numbers converged (iterations ${r.toc.iterations})`);
   assert.equal(r.toc.entries, 10);
@@ -64,7 +68,8 @@ test('generated TOC lists every section on the sheet it really prints to', async
   assert.ok(pages[0].includes('Contents'), 'the TOC page printed');
 });
 
-test('section-mode TOC numbers are settled before any print (arithmetic, not search)', async () => {
+test('section-mode TOC numbers are settled before any print (arithmetic, not search)', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   // teaser keeps the run quick: 3 sections -> Contents + 3 sheets
   const r = await convert(fixture('flow-prose.html'), { out: out('toc-section.pdf'), toc: true, teaser: 3 });
   assert.equal(r.layout, 'section');
@@ -147,7 +152,8 @@ test('presets: explicit options win over preset defaults, in both directions', (
   );
 });
 
-test('preset report converts end to end with numbers from the engine', async () => {
+test('preset report converts end to end with numbers from the engine', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('flow-prose.html'), { out: out('preset-report.pdf'), preset: 'report' });
   assert.equal(r.layout, 'flow');
   const pages = await extractPages(r.master);
@@ -158,7 +164,8 @@ test('preset report converts end to end with numbers from the engine', async () 
   assert.equal(r.verification.ok, true);
 });
 
-test('flow outline: bookmarks land on the sheets the text layer says', async () => {
+test('flow outline: bookmarks land on the sheets the text layer says', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('flow-prose.html'), {
     out: out('outline.pdf'), flow: true, outline: true, probe: 'must still appear in full',
   });

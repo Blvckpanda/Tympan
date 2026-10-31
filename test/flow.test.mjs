@@ -19,6 +19,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { convert } from '../src/pipeline.js';
+import { findChromium } from '../src/browser.js';
 import { extractPages } from '../src/verify.js';
 import { summarizeQuality } from '../src/metrics.js';
 
@@ -28,7 +29,8 @@ const fixture = (name) => path.join(FIXTURES, name);
 const out = (name) => path.join(OUT, name);
 const sha = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
-test('flow packs short sections onto full sheets instead of one sheet each', async () => {
+test('flow packs short sections onto full sheets instead of one sheet each', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('flow-prose.html'), { out: out('prose.pdf'), flow: true });
   assert.equal(r.layout, 'flow');
   assert.ok(r.pages.length < 10, `10 sections must not need 10 pages (got ${r.pages.length})`);
@@ -52,7 +54,8 @@ test('flow packs short sections onto full sheets instead of one sheet each', asy
   assert.ok(r.quality.meanFill > 0.4, `mean fill ${r.quality.meanFill} should beat section mode`);
 });
 
-test('flow prints real page numbers from the print engine', async () => {
+test('flow prints real page numbers from the print engine', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('flow-prose.html'), { out: out('numbered.pdf'), flow: true, pageNumbers: true });
   const pages = await extractPages(r.master);
   assert.equal(pages.length, r.pages.length);
@@ -64,13 +67,15 @@ test('flow prints real page numbers from the print engine', async () => {
   }
 });
 
-test('flow output is byte-identical across runs', async () => {
+test('flow output is byte-identical across runs', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const a = await convert(fixture('flow-prose.html'), { out: out('det-a.pdf'), flow: true });
   const b = await convert(fixture('flow-prose.html'), { out: out('det-b.pdf'), flow: true });
   assert.equal(sha(a.master), sha(b.master), 'same input, same flow bytes');
 });
 
-test('content wider than the column fails flow verification, and passes in section mode', async () => {
+test('content wider than the column fails flow verification, and passes in section mode', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   // Flow cannot shrink a 1600px block: Chromium clips it at the page edge.
   // That must be a failed conversion, not a silently cropped PDF.
   const flow = await convert(fixture('flow-overflow.html'), { out: out('overflow-flow.pdf'), flow: true });
@@ -84,7 +89,8 @@ test('content wider than the column fails flow verification, and passes in secti
   assert.notEqual(section.verification.ok, false);
 });
 
-test('flow refuses options it cannot honour rather than dropping them', async () => {
+test('flow refuses options it cannot honour rather than dropping them', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   // outline WAS rejected when flow mode could not map sections to pages;
   // plan section 3.5 gave it the text-layer mapping (covered in w3.test.mjs).
   // email remains impossible: flow prints one document, not a downscaled variant.

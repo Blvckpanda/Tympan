@@ -20,6 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { convert, resolveGeometry } from '../src/pipeline.js';
+import { findChromium } from '../src/browser.js';
 import { lintDocument } from '../src/lint.js';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
@@ -27,7 +28,8 @@ const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-width-'));
 const fixture = (name) => path.join(FIXTURES, name);
 const out = (name) => path.join(OUT, name);
 
-test('source print CSS never reaches the printed page', async () => {
+test('source print CSS never reaches the printed page', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const base = await convert(fixture('print-css-base.html'), { out: out('base.pdf'), verify: false });
   // The spill probe is identical except for `@media print{min-height:2000px}`.
   // Honoured, that rule makes every section 2000px tall and the spill guard
@@ -43,7 +45,8 @@ test('source print CSS never reaches the printed page', async () => {
   );
 });
 
-test('the print layout is capped at the printable column, so widthScale is 1', async () => {
+test('the print layout is capped at the printable column, so widthScale is 1', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const r = await convert(fixture('width-narrow.html'), { out: out('narrow.pdf'), verify: false });
   assert.equal(r.geometry.columnW, 698, 'A4 portrait column: (8.27 - 1.0) * 96');
   assert.equal(r.contentMaxWidth, 600, 'the source asked for 600px and fits');
@@ -54,7 +57,8 @@ test('the print layout is capped at the printable column, so widthScale is 1', a
   }
 });
 
-test('contentWidth narrows the layout; the column still wins when it cannot fit', async () => {
+test('contentWidth narrows the layout; the column still wins when it cannot fit', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const narrow = await convert(fixture('width-narrow.html'), {
     out: out('narrow-500.pdf'),
     contentWidth: 500,

@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chooseLayout, greedyFlowPages } from '../src/auto.js';
 import { convert } from '../src/pipeline.js';
+import { findChromium } from '../src/browser.js';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-auto-'));
@@ -81,7 +82,8 @@ test('chooseLayout: sparse sections whose flowing would move content back to dec
   assert.equal(r.deckFill, r.flowFill);
 });
 
-test('pipeline: --layout auto on a prose fixture picks flow and carries the numbers', async () => {
+test('pipeline: --layout auto on a prose fixture picks flow and carries the numbers', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   const out = path.join(OUT, 'auto-prose.pdf');
   const r = await convert(`${FIXTURES}flow-prose.html`, { out, layout: 'auto' });
   assert.equal(r.layout, 'flow');
@@ -91,7 +93,8 @@ test('pipeline: --layout auto on a prose fixture picks flow and carries the numb
   assert.ok(r.layoutChoice.reason.length > 10);
 });
 
-test('pipeline: --layout auto keeps its pick out of default conversions', async () => {
+test('pipeline: --layout auto keeps its pick out of default conversions', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
   // default run: no chooser, no choice object, layout stays 'section'
   const out = path.join(OUT, 'default.pdf');
   const r = await convert(`${FIXTURES}flow-prose.html`, { out });
