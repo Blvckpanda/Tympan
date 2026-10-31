@@ -78,4 +78,88 @@
       type();
     }
   }
+
+  /* ---- fill duel: drag the sheet-stack comparison ---- */
+  var duel = document.querySelector("[data-duelwrap]");
+  if (duel) {
+    var after = duel.querySelector(".duel--after");
+    var divider = duel.querySelector("[data-divider]");
+    var pos = 0.55;
+
+    function applyFill() {
+      var pct = Math.round(pos * 100);
+      if (after) after.style.clipPath = "inset(0 0 0 " + pct + "%)";
+      if (divider) {
+        divider.style.left = pct + "%";
+        divider.setAttribute("aria-valuenow", String(pct));
+      }
+    }
+    function setFromEvent(ev) {
+      var rect = duel.getBoundingClientRect();
+      var x = (ev.clientX - rect.left) / rect.width;
+      pos = Math.max(0.06, Math.min(0.94, x));
+      applyFill();
+    }
+
+    var dragging = false;
+    duel.addEventListener("pointerdown", function (ev) {
+      dragging = true;
+      if (duel.setPointerCapture) duel.setPointerCapture(ev.pointerId);
+      setFromEvent(ev);
+    });
+    duel.addEventListener("pointermove", function (ev) {
+      if (dragging) setFromEvent(ev);
+    });
+    duel.addEventListener("pointerup", function () { dragging = false; });
+    duel.addEventListener("pointercancel", function () { dragging = false; });
+
+    if (divider) {
+      divider.addEventListener("keydown", function (ev) {
+        var step = { ArrowLeft: -0.05, ArrowRight: 0.05 }[ev.key];
+        if (!step) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        pos = Math.max(0.06, Math.min(0.94, pos + step));
+        applyFill();
+      });
+    }
+    applyFill();
+  }
+
+  /* ---- copy the flag ---- */
+  var copyBtn = document.querySelector("[data-copy]");
+  if (copyBtn) {
+    var toast = document.querySelector("[data-toast]");
+    var toastTimer = null;
+    function copied() {
+      copyBtn.classList.add("is-copied");
+      copyBtn.setAttribute("aria-live", "polite");
+      copyBtn.textContent = "copied to clipboard \u2713";
+      if (toast) toast.classList.add("is-on");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        copyBtn.classList.remove("is-copied");
+        copyBtn.textContent = "Copy the run \u2014 $ npx tympan deck.html --flow";
+        if (toast) toast.classList.remove("is-on");
+      }, 2600);
+    }
+    copyBtn.addEventListener("click", function () {
+      var text = copyBtn.getAttribute("data-copy");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(copied, function () { fallback(); });
+      } else {
+        fallback();
+      }
+      function fallback() {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); copied(); } catch (err) { /* ignore */ }
+        document.body.removeChild(ta);
+      }
+    });
+  }
 })();

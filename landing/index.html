@@ -20,6 +20,7 @@
   <a class="nav__mark" href="#">tympan<span class="dot">.</span></a>
   <nav class="nav__links">
     <a href="#demo">The cut</a>
+    <a href="#fill">Measured</a>
     <a href="#ui">Preview UI</a>
     <a href="#install">Install</a>
     <a href="https://github.com/Blvckpanda/Tympan" class="nav__gh">GitHub &#8599;</a>
@@ -123,6 +124,53 @@
     </div>
   </div>
   <p class="cut__note" data-count>detected <b>3</b> section(s) &middot; merged <b id="sheetCount">1</b> page(s)</p>
+</section>
+
+<!-- ============ MEASURED: the fill duel ============ -->
+<section class="fill" id="fill">
+  <p class="eyebrow eyebrow--amber">MEASURED, BOTH MODES</p>
+  <h2 class="fill__title">Same HTML. <em>A third of the bytes.</em></h2>
+  <p class="fill__lede">The same deck printed two ways. Section mode leaves the page half empty; <code>--flow</code> keeps text with its headings and fills the sheet. Sweep the divider to see what that does to the stack.</p>
+
+  <div class="duelwrap" data-duelwrap>
+    <div class="duel duel--before" aria-label="section mode: 10 sheets, 64 percent fill, 424 KB, 6.6 seconds">
+      <p class="duel__label">SECTION MODE</p>
+      <div class="duel__stack">
+        <div class="mini mini--air r--2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r-2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r--2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r-2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--air r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+      </div>
+      <p class="duel__stats"><b>10</b> sheets &middot; <b>64%</b> fill &middot; <b>424 KB</b><span class="mhide"> &middot; <b>6.6&nbsp;s</b></span></p>
+    </div>
+
+    <div class="duel duel--after" aria-label="flow mode: 8 sheets, 81 percent fill, 132 KB, 2.2 seconds">
+      <div class="duel__stack">
+        <div class="mini mini--full r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i></div>
+        <div class="mini mini--full r-1"><i class="mbar mbar--amber"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--full r-2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i></div>
+        <div class="mini mini--full r--2"><i class="mbar mbar--amber"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--full r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--full r--1"><i class="mbar mbar--sand"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--amber"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i></div>
+        <div class="mini mini--full r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i></div>
+        <div class="mini mini--full r--2"><i class="mbar mbar--amber"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i></div>
+      </div>
+      <p class="duel__stats duel__stats--right"><span class="mhide"><b>8</b> sheets &middot; </span><b>81%</b> fill &middot; <b>132 KB</b><span class="mhide"> &middot; <b>2.2&nbsp;s</b></span></p>
+    </div>
+
+    <div class="fill__divider" data-divider role="slider" tabindex="0" aria-label="reveal flow mode output" aria-valuemin="0" aria-valuemax="100" aria-valuenow="55"></div>
+  </div>
+
+  <p class="fill__source">Numbers from the subscription-plans deck in <a href="https://github.com/Blvckpanda/Tympan/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a> &mdash; measured, not marketing.</p>
+
+  <button class="cta cta--primary cta--copy" data-copy="npx tympan deck.html --flow" type="button">Copy the run &mdash; $ npx tympan deck.html <b class="cta__flag">--flow</b></button>
+  <span class="copy__toast" data-toast>copied &mdash; now paste it</span>
 </section>
 
 <!-- ============ TYMPAN UI ============ -->
