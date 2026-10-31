@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tympan — HTML to PDF, counted, not hoped</title>
+<meta name="description" content="tympan converts AI-generated HTML into PDFs: one semantic section per page, runtime print-CSS defeated, byte-deterministic, self-verifying output. Zero config.">
+<meta property="og:title" content="tympan — HTML to PDF, verified on every run">
+<meta property="og:description" content="One section, one page. Verified on every run. Deterministic bytes, safe by default, zero config.">
+<meta property="og:image" content="../assets/social-card.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-family='Georgia'>&#9608;</text></svg>">
+</head>
+<body>
+
+<header class="nav">
+  <a class="nav__mark" href="#">tympan<span class="dot">.</span></a>
+  <nav class="nav__links">
+    <a href="#demo">The cut</a>
+    <a href="#ui">Preview UI</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/Blvckpanda/Tympan" class="nav__gh">GitHub &#8599;</a>
+  </nav>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <svg class="hero__contours" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="none" stroke="#e9a83c" stroke-opacity="0.14">
+      <ellipse cx="880" cy="430" rx="220" ry="190"/>
+      <ellipse cx="880" cy="430" rx="340" ry="290"/>
+      <ellipse cx="880" cy="430" rx="470" ry="400"/>
+      <ellipse cx="880" cy="430" rx="610" ry="520"/>
+      <ellipse cx="880" cy="430" rx="760" ry="650"/>
+      <ellipse cx="880" cy="430" rx="920" ry="790"/>
+    </g>
+    <g stroke="#e9a83c" stroke-opacity="0.07">
+      <line x1="880" y1="-200" x2="880" y2="1000"/>
+      <line x1="620" y1="-200" x2="620" y2="1000"/>
+      <line x1="1140" y1="-200" x2="1140" y2="1000"/>
+      <line x1="120" y1="-200" x2="120" y2="1000"/>
+    </g>
+  </svg>
+
+  <div class="hero__inner">
+    <div class="hero__copy">
+      <p class="eyebrow">HTML &#8594; PDF &nbsp;&middot;&nbsp; COUNTED, NOT HOPED</p>
+      <h1 class="hero__mark">tympan<span class="dot">.</span></h1>
+      <p class="hero__lede"><em>One section, one page.</em><br><strong>Verified</strong> <em>on every run.</em></p>
+      <ul class="pills">
+        <li><span class="pill__tick"></span>3 sections = 3 pages</li>
+        <li><span class="pill__tick"></span>same input, same bytes</li>
+        <li><span class="pill__tick"></span>lint explains every blank</li>
+      </ul>
+      <div class="hero__cta">
+        <code class="cta cta--primary">$ npx tympan deck.html</code>
+        <a class="cta cta--ghost" href="https://github.com/Blvckpanda/Tympan">Read the spec</a>
+      </div>
+    </div>
+
+    <div class="hero__art" aria-hidden="true">
+      <div class="fan">
+        <div class="sheet sheet--a">
+          <i class="bar bar--amber s"></i><i class="bar bar--ink xl"></i>
+          <i class="bar bar--sand"></i><i class="bar bar--sand short"></i>
+          <div class="tealblock"></div>
+        </div>
+        <div class="sheet sheet--b">
+          <i class="bar bar--amber s"></i><i class="bar bar--ink l"></i>
+          <i class="bar bar--sand"></i><i class="bar bar--sand short"></i>
+          <i class="bar bar--sand"></i><i class="bar bar--sand short"></i>
+          <i class="bar bar--sand"></i>
+        </div>
+        <div class="sheet sheet--c">
+          <i class="bar bar--ink m"></i>
+          <i class="beigecol"></i><i class="beigecol beigecol--tall"></i>
+        </div>
+        <div class="badge-check">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0c0b09" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+          <span>3 / 3</span>
+        </div>
+      </div>
+      <span class="folio folio--1">02</span>
+      <span class="folio folio--2">03</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ THE CUT (live demo) ============ -->
+<section class="cut" id="demo">
+  <p class="chip">Y O U R &nbsp;&nbsp;H T M L</p>
+  <h2 class="cut__title">One long page. Four sections.</h2>
+
+  <div class="cut__stage">
+    <div class="doc" data-doc>
+      <div class="doc__block doc__block--media">
+        <div class="doc__media"></div>
+      </div>
+      <div class="doc__block">
+        <h3>Market Overview</h3>
+        <i class="rule"></i><i class="rule"></i><i class="rule rule--short"></i><i class="rule rule--bare"></i>
+      </div>
+      <div class="doc__block">
+        <h3>Financial Plan</h3>
+        <i class="rule"></i><i class="rule"></i><i class="rule rule--short"></i><i class="rule rule--bare"></i><i class="rule"></i>
+      </div>
+      <div class="doc__block">
+        <h3>Risks &amp; Mitigation</h3>
+        <i class="rule"></i><i class="rule rule--short"></i><i class="rule rule--bare"></i><i class="rule"></i><i class="rule rule--short"></i>
+      </div>
+    </div>
+
+    <div class="cut__arrow" aria-hidden="true">&#8594;</div>
+
+    <div class="stack" data-stack aria-hidden="true">
+      <div class="page" data-page="0"><span class="page__tag">cover</span></div>
+      <div class="page" data-page="1"><span class="page__tag">1/4 &middot; market</span></div>
+      <div class="page" data-page="2"><span class="page__tag">2/4 &middot; financial</span></div>
+      <div class="page" data-page="3"><span class="page__tag">3/4 &middot; risks</span></div>
+    </div>
+  </div>
+  <p class="cut__note" data-count>detected <b>3</b> section(s) &middot; merged <b id="sheetCount">1</b> page(s)</p>
+</section>
+
+<!-- ============ TYMPAN UI ============ -->
+<section class="ui" id="ui">
+  <div class="ui__copy">
+    <p class="eyebrow eyebrow--amber">T Y M P A N &nbsp; U I</p>
+    <h2 class="ui__title">See the cut<br><em>before you</em> print.</h2>
+    <p class="ui__body">Point it at a file, save, and the paginated PDF redraws beside you. No export step, no guessing where a page will break.</p>
+    <div class="callout callout--1">
+      <p class="callout__label">LIVE RELOAD</p>
+      <p>Watches the file. Save in your editor and the PDF re-renders.</p>
+    </div>
+    <div class="callout callout--2">
+      <p class="callout__label">DETECTION, SHOWN</p>
+      <p>Which strategy found your sections, and how many pages came out. No black box.</p>
+    </div>
+    <code class="ui__cmd">$ npx tympan-ui</code>
+  </div>
+
+  <figure class="ui__shot">
+    <div class="win">
+      <div class="win__bar"><span class="win__dot"></span><span class="win__dot"></span><span class="win__dot"></span><span class="win__url">127.0.0.1:4173 &mdash; tympan ui</span></div>
+      <div class="win__body">
+        <div class="win__shot"><img src="../assets/tympan-ui.png" alt="tympan ui: HTML field on the left, live PDF preview on the right" loading="lazy"></div>
+        <span class="ui__badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg> 4 sheets &nbsp;&middot;&nbsp; prelude kept</span>
+      </div>
+    </div>
+  </figure>
+</section>
+
+<!-- ============ INSTALL / TERMINAL ============ -->
+<section class="term" id="install">
+  <h2 class="term__label">T Y M P A N</h2>
+  <div class="termwin">
+    <div class="termwin__bar"><span class="win__dot"></span><span class="win__dot"></span><span class="win__dot"></span></div>
+    <pre class="termwin__body" id="termBody" aria-label="terminal">$ </pre>
+  </div>
+  <div class="term__opts">
+    <code>npx tympan deck.html --json</code>
+    <code>npx tympan lint report.pdf</code>
+    <code>npx tympan test --diff</code>
+  </div>
+</section>
+
+<!-- ============ WEDGE ============ -->
+<section class="wedge">
+  <h2 class="eyebrow eyebrow--amber">W H Y &nbsp; T Y M P A N</h2>
+  <div class="wedge__grid">
+    <article><h3>Deterministic bytes</h3><p>Same input, same bytes &mdash; fixed timestamps, content-derived IDs. Your CI can diff PDFs.</p></article>
+    <article><h3>Safe by default</h3><p>file:// reads and private networks are blocked. Hostile documents cannot reach your LAN.</p></article>
+    <article><h3>Self-verifying</h3><p>Every run checks its own output: probes, page counts, byte matches. Failures are loud.</p></article>
+    <article><h3>Lint that explains</h3><p>Fill, stranded headings, broken assets &mdash; 13 rules that name the cause, not the symptom.</p></article>
+  </div>
+</section>
+
+<footer class="foot">
+  <p class="foot__mark">tympan<span class="dot">.</span></p>
+  <p class="foot__meta">MIT &middot; <code>npm i tympan</code> &middot; <a href="https://github.com/Blvckpanda/Tympan">github.com/Blvckpanda/Tympan</a></p>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
