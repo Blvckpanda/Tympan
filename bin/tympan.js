@@ -10,12 +10,17 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { convert, convertMany, resolveOutputs, buildBatchJsonReport } from '../src/index.js';
+import { convert, convertMany, resolveGeometry, resolveOutputs, buildBatchJsonReport } from '../src/index.js';
 import { parseArgv } from '../src/argv.js';
+import { formatQualityLine } from '../src/metrics.js';
 import { expandInputs, isUrlInput } from '../src/glob.js';
+import { applyPreset, PRESET_NAMES } from '../src/presets.js';
 
 const USAGE = `Usage: tympan <input...> [options]
        tympan doctor [--json]
+       tympan serve [--port <n>]
+       tympan preview <input> [--port <n>]
+       tympan lint <input...> [--strict] [--json]
        tympan test <input...> [--update] [--golden <dir>] [--json]
 
 Inputs are file paths, http(s) URLs, quoted glob patterns ("docs/*.html",
@@ -32,9 +37,28 @@ Options:
   --format <fmt>       Page format: a4 (default) or letter
   --orientation <o>    Page orientation: portrait (default) or landscape
   --margin <spec>      Margins in inches: N or T,R,B,L (default 0.4,0.5,0.4,0.5)
+  --content-width <px> Lay the document out at this width. Capped at the
+                       printable column (sheet minus side margins), which is
+                       what keeps pages from being silently scaled down
   --background <css>   Page background color (default: the source's own)
   --teaser <n>         Only convert the first N sections
-  --outline            Add PDF bookmarks (one per section)
+  --flow              Print the whole body once and let Chromium paginate it
+                       (the right mode for prose: pages fill and nothing is
+                       shrunk). Section mode stays the default
+  --page-numbers      With --flow: "n / total" in the bottom margin
+  --layout <mode>     deck (default), flow (alias of --flow), or auto: measure
+                       every section first and pick flow only when one section
+                       per page would waste sheets or start shrinking
+  --fill <which>      With --flow: balanced (default), tight (bounded
+                       micro-scale ladder, reported), or loose (keep-together
+                       wins, gaps accepted)
+  --toc               Generate a Contents page with per-section sheet numbers
+  --page-footer <t>   With --flow: static running footer in the bottom margin
+                       (a preset may resolve it from the document title)
+  --preset <name>     deck | report | book | invoice | contract: a documented
+                       bundle of defaults; explicit flags always win
+  --outline            Add PDF bookmarks (one per section; section mode at
+                       print time, flow mode mapped from the text layer)
   --title <t>          PDF metadata title (default: source <title>)
   --author <a>         PDF metadata author
   --subject <s>        PDF metadata subject
@@ -49,9 +73,56 @@ Options:
   --quiet              Suppress per-section progress lines
   -h, --help           Show this help
 
+tympan serve (HTTP API - the first slice of a hosted tier):
+  Converts for a client that is not this machine. Requires API keys:
+  TYMPAN_KEYS="key:tenant,key2:tenant2" (a request without a valid key is
+  401; a tenant never sees another tenant's job). Sends html or a URL - never
+  a server file path - and the network policy is the SERVER's, so a client
+  cannot ask for allowNet or offline. Jobs are queued, run by a small worker
+  pool, retained for 15 minutes and then deleted with their PDFs.
+  GET /healthz  GET /v1/me  POST /v1/jobs  GET /v1/jobs/:id  GET /v1/jobs/:id/pdf
+  --port <n>           Port to listen on (default 8080; 0 picks a free one)
+  --concurrency <n>    Jobs in flight (default 2, env TYMPAN_SERVE_CONCURRENCY)
+  --offline            Block every outbound request for every job
+
+tympan preview (see where the cut will fall, before converting):
+  Measures the document the way the printer does - its own clean template, its
+  own waits - and serves a local page showing one paper-sized sheet per
+  detected section: the section's own rendering, the text area drawn to scale,
+  the shrink factor, how full the sheet will be and which rules the page trips.
+  Save the file and it re-measures. It binds to 127.0.0.1 only.
+  --port <n>           Port to listen on (default 4319; 0 picks a free one)
+
+  Convert options (--selector, --format, --orientation, --margin, --background,
+  --content-width, --teaser, --wait-for, --offline, --allow-net,
+  --target-fill) apply here too,
+  so the preview matches the conversion you are about to run.
+
+tympan lint (diagnostics - why does this PDF look wrong?):
+  Converts with the same flags and rules over the measurements: per-page fill,
+  stranded headings, pages scaled to fit, images that never loaded, blocked
+  requests, the source's own print CSS, fixed-position and viewport-sized
+  blocks. It never rasterizes and never guesses, and a sparse page is a
+  warning, not a failure (covers and full-bleed figures are meant to be
+  sparse); errors, a lost image or no pages at all, fail the run.
+  --layout changes which page rules run: flow output (pages measured from the
+  PDF text layer) is judged by its own rule set — flow-near-empty, a sheet
+  below the 10% flow floor that a break decision stranded, and
+  flow-stranded-heading, a heading left alone when its body flowed to
+  the next sheet — instead of the per-page fill and heading checks above,
+  which only fit pages a section owns entirely.
+  --strict             Treat warnings and notes as failures too
+  --target-fill <f>    Fill below this fraction is flagged (default 0.7; 0 disables)
+  -o, --out <dir>      Keep the generated PDFs here for review
+  --json               Machine-readable findings on stdout
+
 tympan test (pixel-golden regression — did the pages still look the same?):
   --golden <dir>       Baseline directory (default .tympan/golden)
   --update             Record/refresh baselines instead of comparing
+  --diff               Write a side-by-side PNG for every differing page
+                       (baseline | current | differing cells), under
+                       <golden>/diff/<input>/pNNN.png, and say which parts of
+                       the sheet changed
   --tolerance <frac>   Share of differing cells allowed (default 0.02)
   -o, --out <dir>      Keep the generated PDFs in this directory for review
   --json               Machine-readable report on stdout`;
@@ -64,6 +135,7 @@ const SPEC = {
     '--format',
     '--orientation',
     '--margin',
+    '--content-width',
     '--background',
     '--teaser',
     '--title',
@@ -75,9 +147,32 @@ const SPEC = {
     '--wait-timeout',
     '--golden',
     '--tolerance',
+    '--target-fill',
+    '--port',
+    '--concurrency',
+    '--layout',
+    '--fill',
+    '--page-footer',
+    '--preset',
   ],
   repeatable: ['--allow-net'],
-  boolean: ['--email', '--outline', '--json', '--offline', '--no-verify', '--quiet', '--update', '-h', '--help'],
+  // (boolean list is below; --toc joins it)
+  boolean: [
+    '--email',
+    '--outline',
+    '--json',
+    '--offline',
+    '--no-verify',
+    '--quiet',
+    '--update',
+    '--diff',
+    '--strict',
+    '--flow',
+    '--page-numbers',
+    '--toc',
+    '-h',
+    '--help',
+  ],
 };
 
 /** Bad invocation (exit 2), with the usage text. */
@@ -140,7 +235,62 @@ function convertOptions() {
     waitFor: args.value('--wait-for'),
     outline: args.has('--outline'),
     verify: !args.has('--no-verify'),
+    flow: args.has('--flow'),
+    pageNumbers: args.has('--page-numbers'),
+    toc: args.has('--toc'),
   };
+  // A preset sets documented defaults; explicit flags always win over them.
+  // Applied FIRST so later reads of opts read the folded values.
+  if (args.has('--preset')) {
+    const name = args.value('--preset');
+    if (!PRESET_NAMES.includes(name)) {
+      usageError(`--preset must be one of ${PRESET_NAMES.join('|')}, got: ${name}`);
+    }
+    const folded = applyPreset(name, opts);
+    opts.flow = folded.flow;
+    opts.pageNumbers = folded.pageNumbers;
+    opts.toc = folded.toc;
+    opts.footerFromTitle = folded.footerFromTitle;
+    opts.margins = folded.margins;
+  }
+  if (args.has('--layout')) {
+    const layout = args.value('--layout').toLowerCase();
+    if (!['deck', 'flow', 'auto'].includes(layout)) {
+      usageError(`--layout must be deck, flow or auto, got: ${layout}`);
+    }
+    opts.layout = layout;
+    // Explicit --layout beats both --flow and a preset's flow decision.
+    if (layout === 'flow') opts.flow = true;
+    if (layout === 'deck') opts.flow = false; // deck runs the section engine, always
+    if (layout === 'auto' && opts.flow) {
+      usageError('--flow and --layout auto contradict each other; pass just one');
+    }
+  }
+  if (opts.flow && (opts.layout === 'auto')) {
+    usageError('--flow and --layout auto contradict each other; pass just one');
+  }
+  if (args.has('--fill')) {
+    const fill = args.value('--fill').toLowerCase();
+    if (!['balanced', 'tight', 'loose'].includes(fill)) {
+      usageError(`--fill must be balanced, tight or loose, got: ${fill}`);
+    }
+    opts.fill = fill;
+  }
+  if (opts.fill && opts.fill !== 'balanced' && !opts.flow) {
+    usageError(`--fill ${opts.fill} applies to --flow only (section mode never flows)`);
+  }
+  if (args.has('--page-footer')) {
+    opts.pageFooter = args.value('--page-footer');
+  }
+  if ((opts.pageFooter || opts.footerFromTitle) && !opts.flow) {
+    usageError('--page-footer (and a preset running footer) applies to --flow only');
+  }
+  if (opts.pageNumbers && !opts.flow) {
+    usageError('--page-numbers applies to --flow only (section mode numbers pages itself)');
+  }
+  if (opts.flow && opts.email) {
+    usageError('--email is section-mode only: pass --flow without --email');
+  }
   if (args.has('--format')) {
     const format = args.value('--format').toLowerCase();
     if (format !== 'a4' && format !== 'letter') usageError(`--format must be a4 or letter, got: ${format}`);
@@ -157,6 +307,28 @@ function convertOptions() {
     opts.margins = parseMargin(args.value('--margin'));
     if (!opts.margins) usageError(`--margin expects N or T,R,B,L in inches, got: ${args.value('--margin')}`);
   }
+  if (args.has('--content-width')) {
+    const n = Number(args.value('--content-width'));
+    // A floor, not a ceiling: the printable column is the ceiling, and it is
+    // derived from the paper and margins (see resolveGeometry).
+    if (!Number.isInteger(n) || n < 320) {
+      usageError(`--content-width expects an integer of at least 320 (px), got: ${args.value('--content-width')}`);
+    }
+    opts.contentWidth = n;
+  }
+  // 0 is a real value, not a missing one: it turns the fill rules off, which
+  // is what a deliberately sparse deck (full-bleed pages) needs.
+  const targetFill = (() => {
+    if (!args.has('--target-fill')) return undefined;
+    const n = Number(args.value('--target-fill'));
+    if (!Number.isFinite(n) || n < 0 || n > 1) {
+      usageError(
+        `--target-fill expects a fraction from 0 to 1 (0 disables the fill rule), got: ${args.value('--target-fill')}`
+      );
+    }
+    return n;
+  })();
+  opts.targetFill = targetFill;
   if (args.has('--teaser')) {
     const n = Number(args.value('--teaser'));
     if (!Number.isInteger(n) || n < 1) usageError(`--teaser expects a positive integer, got: ${args.value('--teaser')}`);
@@ -288,6 +460,139 @@ if (positionals[0] === 'doctor') {
   process.exit(rep.summary.ok ? 0 : 1);
 }
 
+// -------------------------------------------------------------- serve
+if (positionals[0] === 'serve') {
+  const { createServeServer, parseApiKeys, servePolicy, SERVE_DEFAULT_PORT } = await import('../src/serve.js');
+  let port = SERVE_DEFAULT_PORT;
+  if (args.has('--port')) {
+    port = Number(args.value('--port'));
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      usageError(`--port expects an integer between 0 and 65535, got: ${args.value('--port')}`);
+    }
+  }
+  let concurrency;
+  if (args.has('--concurrency')) {
+    concurrency = Number(args.value('--concurrency'));
+    if (!Number.isInteger(concurrency) || concurrency < 1) {
+      usageError(`--concurrency expects a positive integer, got: ${args.value('--concurrency')}`);
+    }
+  }
+  const keys = parseApiKeys(process.env.TYMPAN_KEYS);
+  if (keys.size === 0) {
+    fail('no API keys configured. Set TYMPAN_KEYS="key:tenant,key2:tenant2" (one pair per tenant).');
+  }
+  const policy = servePolicy({ concurrency, offline: args.has('--offline') });
+  let serve;
+  try {
+    serve = await createServeServer({ port, concurrency, offline: args.has('--offline') });
+  } catch (e) {
+    fail(e && e.message ? e.message : String(e));
+  }
+  console.error(
+    `tympan serve: ${serve.url} - ${keys.size} tenant key(s), concurrency ${policy.concurrency}, retention ${Math.round(policy.ttlMs / 60000)} min${policy.offline ? ', offline' : ''}`
+  );
+  console.error('  GET /healthz  GET /v1/me  POST /v1/jobs  GET /v1/jobs/:id  GET /v1/jobs/:id/pdf');
+  const shutdown = async () => {
+    await serve.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+  await new Promise(() => {});
+}
+
+// ------------------------------------------------------------ preview
+if (positionals[0] === 'preview') {
+  const { createPreviewServer, PREVIEW_DEFAULT_PORT } = await import('../src/preview.js');
+  const rest = positionals.slice(1);
+  if (rest.length === 0) usageError('tympan preview needs one input');
+  if (rest.length > 1) usageError(`tympan preview takes one document, got ${rest.length} (run one per document)`);
+  const { inputs } = await resolveInputs(rest);
+  if (inputs.length !== 1) usageError('tympan preview takes one document');
+  let port = PREVIEW_DEFAULT_PORT;
+  if (args.has('--port')) {
+    port = Number(args.value('--port'));
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      usageError(`--port expects an integer between 0 and 65535, got: ${args.value('--port')}`);
+    }
+  }
+  const opts = convertOptions();
+  delete opts.onProgress;
+  let server;
+  try {
+    server = await createPreviewServer({
+      ...opts,
+      input: inputs[0],
+      port,
+    });
+  } catch (e) {
+    fail(e && e.message ? e.message : String(e));
+  }
+  const report = server.report();
+  if (report) console.error(`tympan preview: ${report.pages.length} page(s). ${report.qualityLine}`);
+  console.error(`tympan preview: ${server.url}  (Ctrl-C to stop)`);
+  const stop = async () => {
+    await server.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+  // Top-level await that never resolves: the HTTP server (not a timer) keeps
+  // the process alive, and nothing below this line runs — so 'preview' is never
+  // re-read as an input path on the way to the convert branch.
+  await new Promise(() => {});
+}
+
+// --------------------------------------------------------------- lint
+if (positionals[0] === 'lint') {
+  const { lintDocument, formatLintReport, lintExitCode, failureReport, summarizeLint } = await import('../src/lint.js');
+  const { formatQualityLine } = await import('../src/metrics.js');
+  const resolved = await resolveInputs(positionals.slice(1));
+  const opts = convertOptions();
+  // lint's report IS the output; per-section progress would bury it.
+  delete opts.onProgress;
+  const keepDir = args.value('--out') ?? args.value('-o');
+  if (keepDir === '-') usageError('tympan lint does not write to stdout');
+  const geo = resolveGeometry(opts);
+  const pdfDir = keepDir ? path.resolve(keepDir) : fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-lint-'));
+  if (keepDir) fs.mkdirSync(pdfDir, { recursive: true });
+  else scratch.push(pdfDir);
+  const batch = await convertMany(resolved.inputs, {
+    ...opts,
+    verify: false,
+    perInput: (input) => ({ out: path.join(pdfDir, path.basename(resolveOutputs(input, {}).master)) }),
+  });
+  const reports = batch.entries.map((entry) => {
+    const label = entry.input === resolved.stdinPath ? '-' : entry.input;
+    if (!entry.ok || !entry.result) return failureReport(label, entry.error || 'conversion failed');
+    const r = entry.result;
+    return lintDocument({
+      input: label,
+      pages: r.pages,
+      quality: r.quality,
+      geometry: geo,
+      // The mode, said per document and not inferred: the conversion result
+      // carries its actual layout ('flow' or 'section' — the pipeline sets
+      // both), which --layout auto needs, where the flag alone cannot name
+      // the per-document choice. A result predating the field falls back to
+      // the flag (flow rules run for `--flow`, section's for the default;
+      // a null would fall through to lint's own inference).
+      layout: r.layout ?? (opts.flow ? 'flow' : 'section'),
+      layoutWidthPx: r.contentMaxWidth,
+      requestedLayoutWidthPx: r.contentWidthRequested,
+      audit: r.audit,
+      targetFill: opts.targetFill,
+    });
+  });
+  if (keepDir) console.error(`tympan lint: kept the generated PDFs in ${pdfDir}`);
+  if (args.has('--json')) {
+    await writeStdout(JSON.stringify({ count: reports.length, ...summarizeLint(reports), reports }, null, 2) + '\n');
+  } else {
+    console.error(formatLintReport(reports, { qualityLine: formatQualityLine }));
+  }
+  process.exit(lintExitCode(reports, { strict: args.has('--strict') }));
+}
+
 // ------------------------------------------------------- test (goldens)
 if (positionals[0] === 'test') {
   const { goldenTest, formatGoldenReport } = await import('../src/golden.js');
@@ -308,6 +613,7 @@ if (positionals[0] === 'test') {
       ...opts,
       goldenDir: args.value('--golden') || '.tympan/golden',
       update: args.has('--update'),
+      diff: args.has('--diff'),
       tolerance,
       keepDir: keepDir ? path.resolve(keepDir) : undefined,
     });
@@ -321,6 +627,13 @@ if (positionals[0] === 'test') {
   if (keepDir) console.error(`tympan test: kept the generated PDFs in ${path.resolve(keepDir)}`);
   if (args.has('--json')) await writeStdout(JSON.stringify(report, null, 2) + '\n');
   else console.error(formatGoldenReport(report));
+  // CI guard: an adopted baseline means the fill floors were never compared.
+  // Locally the first compare adopts non-breakingly by design; in CI that
+  // would green-light a build whose golden coverage is nil, so it fails.
+  if (report.fillBaselinesAdopted && process.env.CI) {
+    console.error('tympan test: fill baselines were ADOPTED, not compared - run once with --update locally, commit the baselines, and let CI verify against them.');
+    process.exit(1);
+  }
   process.exit(report.ok ? 0 : 1);
 }
 
@@ -343,7 +656,22 @@ if (plan.toStdout) {
 if (resolved.inputs.length === 1) {
   const result = await convert(resolved.inputs[0], { ...opts, out: outFor(plan, resolved.inputs[0]) });
   const label = resolved.stdinPath ? '-' : resolved.inputs[0];
-  let ok = true;
+  // Section mode proves itself per output file (pages === sections); flow mode
+  // proves a different set (no blank page, no clipped content, nothing wider
+  // than the column). Both arrive here as one `ok`, so a failed flow run exits
+  // non-zero exactly like a failed section run — it used to exit 0 because the
+  // loop below only had `outputs` to look at and flow has none.
+  let ok = result.verification ? result.verification.ok !== false : true;
+  if (!ok && !args.has('--json')) {
+    const v = result.verification || {};
+    const why = [
+      v.blankPages?.length ? `blank page(s): ${v.blankPages.join(', ')}` : null,
+      v.clippedPages?.length ? `clipped page(s): ${v.clippedPages.join(', ')}` : null,
+      v.overflowPx > 0 ? `content ${v.overflowPx}px wider than the column` : null,
+      v.probeOk === false ? 'probe text not found on the last page' : null,
+    ].filter(Boolean);
+    console.error(`tympan: ${result.master}: verification failed${why.length ? ' — ' + why.join('; ') : ''}`);
+  }
   for (const o of result.verification?.outputs || []) {
     if (o.probeOk === false || !o.pagesOk) ok = false;
     if (!args.has('--json')) {
@@ -360,6 +688,7 @@ if (resolved.inputs.length === 1) {
   } else if (ok) {
     console.error(`tympan: wrote ${result.master}${result.email ? ` + ${result.email}` : ''}`);
   }
+  if (!args.has('--json') && result.quality) console.error(`tympan: ${formatQualityLine(result.quality)}`);
   if (!ok) fail('verification failed');
   process.exit(0);
 }
@@ -383,7 +712,8 @@ if (args.has('--json')) {
       console.error(`[FAIL] ${display}: ${b.error || 'conversion failed'}`);
       continue;
     }
-    const pages = (b.result.verification?.outputs || []).map((o) => `${o.pages}/${o.expected} pages`).join(', ');
+    const pages = (b.result.verification?.outputs || []).map((o) => `${o.pages}/${o.expected} pages`).join(', ') +
+      (b.result.quality && !args.has('--json') ? ` | ${formatQualityLine(b.result.quality)}` : '');
     console.error(`[ok] ${display} → ${b.result.master} (${pages})${b.result.email ? ` + ${b.result.email}` : ''}`);
   }
   console.error(`tympan: wrote ${report.count - report.failed} of ${report.count} document(s)`);

@@ -72,6 +72,29 @@ test('buildJsonReport: stable machine-readable shape', () => {
   assert.equal(report.blockedRequests, 2);
   assert.equal(report.totalMs, 4321);
   assert.deepEqual(report.verification.outputs[0], { file: '/tmp/out.pdf', pages: 3, expected: 3, pagesOk: true, probeOk: true, sizeBytes: 123 });
+  // A result from before the flow facts existed serializes them as null, so
+  // a consumer can tell "switch off" apart from "field missing".
+  assert.equal(report.layoutChoice, null);
+  assert.equal(report.fillPolicy, null);
+  assert.equal(report.toc, null);
+  assert.equal(report.outline, null);
+  assert.equal(report.pageFooter, null);
+});
+
+test('buildJsonReport: the flow facts a caller can gate on travel with the report', () => {
+  const report = buildJsonReport({
+    layout: 'flow',
+    layoutChoice: { picked: 'flow', reason: 'deck fill 0.31 below target', deckFill: 0.31, flowFill: 0.81, deckPages: 9, flowPages: 7 },
+    fillPolicy: { policy: 'tight', scaleApplied: 0.97, candidates: [1, 0.98, 0.97], attempts: [{ scale: 1, pages: 8 }, { scale: 0.97, pages: 7 }] },
+    toc: { pages: 1, entries: 8, stable: true, iterations: 1, numbers: [2, 3, 4] },
+    outline: { entries: 8, mappedBy: 'text-layer' },
+    pageFooter: 'Q3 report',
+  }, { input: '/tmp/in.html', totalMs: 10 });
+  assert.deepEqual(report.layoutChoice, { picked: 'flow', reason: 'deck fill 0.31 below target', deckFill: 0.31, flowFill: 0.81, deckPages: 9, flowPages: 7 });
+  assert.deepEqual(report.fillPolicy, { policy: 'tight', scaleApplied: 0.97, candidates: [1, 0.98, 0.97], attempts: [{ scale: 1, pages: 8 }, { scale: 0.97, pages: 7 }] });
+  assert.deepEqual(report.toc, { pages: 1, entries: 8, stable: true, iterations: 1, numbers: [2, 3, 4] });
+  assert.deepEqual(report.outline, { entries: 8, mappedBy: 'text-layer' });
+  assert.equal(report.pageFooter, 'Q3 report');
 });
 
 test('wait-for: conversion waits for JS-mounted content before printing', async (t) => {

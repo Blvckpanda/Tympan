@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveGeometry, resolveOutputs, cssColorToRgb } from '../src/pipeline.js';
-import { clampLoadWidth } from '../src/template.js';
+import { clampLoadWidth, clampContentWidth } from '../src/template.js';
 import { mergeFooter } from '../src/email.js';
 import { withPrelude, describeDetection } from '../src/detect.js';
 import { isPrivateTarget, requestGate } from '../src/security.js';
@@ -17,7 +17,13 @@ test('resolveGeometry: portrait A4 is the default (v0.5 flip)', () => {
   assert.equal(g.H, 841.89);
   assert.equal(g.W_IN, 8.27);
   assert.equal(g.H_IN, 11.69);
-  assert.equal(g.contentW, 774);
+  // (8.27in - 0.5 - 0.5) * 96 = 698px. The layout width IS the column now: a
+  // 774px layout in a 698px column is what silently scaled every page 0.902.
+  assert.equal(g.columnW, 698);
+  assert.equal(g.contentW, 698);
+  // The source is still measured at a desktop width so its media queries do
+  // not flip to their tablet branch during detection.
+  assert.equal(g.loadW, 774);
   assert.deepEqual(g.margins, { top: 0.4, bottom: 0.4, left: 0.5, right: 0.5 });
 });
 
@@ -27,7 +33,9 @@ test('resolveGeometry: landscape for slide decks', () => {
   assert.equal(g.H, 595.28);
   assert.equal(g.W_IN, 11.69);
   assert.equal(g.H_IN, 8.27);
+  assert.equal(g.columnW, 1026);
   assert.equal(g.contentW, 1026);
+  assert.equal(g.loadW, 1026);
 });
 
 test('resolveGeometry: letter format and margin overrides', () => {
@@ -36,6 +44,25 @@ test('resolveGeometry: letter format and margin overrides', () => {
   assert.equal(g.H, 792);
   assert.equal(g.margins.top, 0.2);
   assert.equal(g.margins.bottom, 0.4);
+  // letter: (8.5 - 0.5 - 0.5) * 96 = 720px
+  assert.equal(g.columnW, 720);
+  assert.equal(g.contentW, 720);
+});
+
+test('resolveGeometry: contentWidth narrows the layout but cannot widen it', () => {
+  assert.equal(resolveGeometry({ contentWidth: 500 }).contentW, 500);
+  // 900 > the 698px column: capped, never honoured, because a wider layout is
+  // exactly what forces Chromium to scale the page down.
+  assert.equal(resolveGeometry({ contentWidth: 900 }).contentW, 698);
+  assert.equal(resolveGeometry({ contentWidth: 900 }).columnW, 698);
+  // A wider sheet really does give a wider column.
+  const land = resolveGeometry({ orientation: 'landscape', contentWidth: 900 });
+  assert.equal(land.contentW, 900);
+  assert.equal(land.columnW, 1026);
+});
+
+test('resolveGeometry: margins that leave no printable area are refused', () => {
+  assert.throws(() => resolveGeometry({ margins: { left: 4.2, right: 4.2 } }), /no printable area/);
 });
 
 test('resolveOutputs: strips .html, derives -email path', () => {
@@ -130,11 +157,22 @@ test('withPrelude: inserts the prelude page BEFORE the sections (none lost)', ()
   assert.equal(withPrelude(sections, null), sections); // no prelude -> unchanged
 });
 
-test('clampLoadWidth clamps to 700..1100 and falls back to portrait width', () => {
+test('clampLoadWidth clamps the SOURCE viewport to 700..1100', () => {
   assert.equal(clampLoadWidth(1026), 1026);
   assert.equal(clampLoadWidth(3000), 1100);
   assert.equal(clampLoadWidth(320), 700);
   assert.equal(clampLoadWidth(NaN), 774);
+});
+
+test('clampContentWidth clamps the PRINT layout to the column (no 700px floor)', () => {
+  assert.equal(clampContentWidth(774, 698), 698); // Kitch: the 0.902 case
+  assert.equal(clampContentWidth(600, 698), 600); // author asked for less
+  assert.equal(clampContentWidth(900, 698), 698); // never wider than paper
+  // A 1-inch-margin A4 column is 602px: floored at 700 it would overflow the
+  // paper, which is why the old 700px floor had to leave this path.
+  assert.equal(clampContentWidth(774, 602), 602);
+  assert.equal(clampContentWidth(200, 698), 320); // narrower than legible
+  assert.equal(clampContentWidth(NaN, 698), 698); // fall back to the column
 });
 
 /** Minimal fake of the Playwright route surface for gate-decision tests. */

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>flow overflow</title>
+<style>
+  body { font-family: sans-serif; margin: 0; color: #111; }
+  main { max-width: 698px; margin: 0 auto; }
+  section.page-section { padding: 8px 0; }
+  p { font-size: 15px; line-height: 1.5; }
+  .wide { width: 1600px; background: #eee; padding: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="page-section" id="wide">
+    <h2>Wider than the paper</h2>
+    <p>Flow mode cannot shrink this: Chromium clips it at the page edge.</p>
+    <div class="wide">THIS BLOCK IS 1600PX WIDE AND CANNOT BE FRAGMENTED HORIZONTALLY</div>
+  </section>
+</main>
+</body>
+</html>

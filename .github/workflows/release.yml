@@ -3,22 +3,31 @@ name: Release
 # Publishes to npm when a version tag (v*) is pushed. See PUBLISHING.md.
 # Authentication: npm trusted publishing — OIDC from GitHub Actions.
 # There is no npm token secret in this repository, by design: the publish
-# step authenticates via the package's Trusted Publisher entry
+# job authenticates via the package's Trusted Publisher entry
 # (Blvckpanda/Tympan, release.yml) and needs `id-token: write` only.
+#
+# Supply-chain hardening:
+#   - every action is pinned to a full commit SHA (version noted in a comment);
+#   - the npm upgrade is an EXACT pinned version (npm@11.21.1 >= the 11.5.1
+#     trusted-publishing floor) instead of an unpinned @latest;
+#   - the GitHub Release runs in its own job WITHOUT `id-token: write`, so a
+#     compromised release action cannot mint a publish credential.
+
 on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write # create the GitHub Release and attach the tarball
-  id-token: write # npm provenance (OIDC)
+permissions: {} # each job grants only what it needs
 
 jobs:
-  release:
+  # Holds id-token and nothing else: publishes the tarball to npm via OIDC.
+  publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # npm provenance (OIDC)
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -27,17 +36,37 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       # Trusted publishing (OIDC publish) requires npm >= 11.5.1; setup-node
-      # can ship an older npm. Upgrade unconditionally — no-op when current.
+      # can ship an older npm. Pinned exactly — an unpinned @latest is a
+      # mutable supply-chain footgun.
       - name: Upgrade npm (trusted publishing needs >= 11.5.1)
-        run: npm install -g npm@latest
-      - name: Pack dry-run guard (whitelist + tarball sanity)
+        run: npm install -g npm@11.21.1
+      - name: Pack guard (whitelist + tarball sanity)
         run: |
           npm pack --dry-run
           npm pack
       - name: Publish to npm (trusted publishing, no token)
         run: npm publish --provenance --access public
-      - name: GitHub Release (attach tarball)
-        uses: softprops/action-gh-release@v2
+      # The same bytes go to the GitHub Release: they travel as an artifact,
+      # so pack and release cannot drift.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tympan-tarball
+          path: tympan-*.tgz
+          if-no-files-found: error
+
+  # Holds contents and nothing else: creates the GitHub Release. No id-token
+  # here — this job cannot mint a publish credential even if compromised.
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release and attach the tarball
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tympan-tarball
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: tympan-*.tgz
           generate_release_notes: true

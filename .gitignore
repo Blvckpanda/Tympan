@@ -6,3 +6,6 @@ out/
 .env.local
 .DS_Store
 Thumbs.db
+
+# Generated corpus (recreate with: node scripts/corpus/generate.mjs)
+test/corpus/

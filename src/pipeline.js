@@ -23,7 +23,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { PDFDocument, PDFName, PDFHexString } from 'pdf-lib';
@@ -32,17 +31,24 @@ import {
   buildCleanTemplate,
   measurePageBackgroundAndWidth,
   clampLoadWidth,
+  clampContentWidth,
   CONTENT_W,
   PORTRAIT_CONTENT_W,
   DEFAULT_CONTENT_MAX_WIDTH,
 } from './template.js';
 import { detectSectionsInPage, capturePreludeInPage, withPrelude } from './detect.js';
 import { verifyOutputs } from './verify.js';
+import { judgePage, summarizeQuality } from './metrics.js';
+import { auditSourceInPage } from './lint.js';
+import { measureBlockInPage } from './measure.js';
+import { chooseLayout } from './auto.js';
 import { downscaleImagesInPage, mergeFooter } from './email.js';
 import { armRequestPolicy } from './security.js';
-
-const require = createRequire(import.meta.url);
-const { version: TYMPAN_VERSION } = require('../package.json');
+import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';
+import { buildFlowDocument, printFlow, analyzeFlowPdf, verifyFlow, mapSectionsToPages, flowOutlineEntries } from './flow.js';
+import { inlineLocalAssets } from './assets.js';
+import { estimateTocPages, buildTocHtml } from './toc.js';
+import { applyPreset, PRESET_NAMES } from './presets.js';
 
 /** Final page geometry in pt (PDF points, 72/inch) — landscape values. */
 export const PAGE_GEOMETRY = {
@@ -53,11 +59,6 @@ export const PAGE_GEOMETRY = {
 /** Default page margins in inches (matches the proven deck layout). */
 export const DEFAULT_MARGINS = { top: 0.4, bottom: 0.4, left: 0.5, right: 0.5 };
 
-/** Fixed metadata epoch: every output carries the same timestamps. */
-const FIXED_DATE = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
-
-/** Producer string written into every PDF trailer. */
-const PRODUCER = `tympan ${TYMPAN_VERSION}`;
 
 /** Temp workspace for per-section PDFs (caller cleans up). */
 export function makeWorkdir() {
@@ -98,14 +99,37 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
   if (opts.waitFor) {
     await page.waitForSelector(opts.waitFor, { timeout: opts.waitTimeout ?? 10000 });
   }
+  // Local sibling images the request gate refused get a second chance here:
+  // Node reads the file and hands the page a data URI. Nothing is unblocked,
+  // and an asset that does not exist stays broken (and stays reported).
+  const inlinedAssets = await inlineLocalAssets(page);
+  if (inlinedAssets.inlined) {
+    // Layout heights can grow once the images actually paint (a sized img is
+    // not a zero-height one), so let the page settle again before measuring.
+    await page.evaluate(() => document.fonts.ready.then(() => true));
+    await page.waitForFunction(
+      () => Array.from(document.images).every((i) => i.complete),
+      null,
+      { timeout: 60000 }
+    );
+  }
   const measured = await page.evaluate(measurePageBackgroundAndWidth, DEFAULT_CONTENT_MAX_WIDTH);
   const background = opts.background || measured.background;
-  const contentMaxWidth = opts.contentMaxWidth ?? clampLoadWidth(measured.contentWidth);
+  // What the document ASKS for (its own container max-width), and what it gets:
+  // capped at the printable column so printing never has to scale the page.
+  const requestedWidth = opts.contentMaxWidth ?? measured.contentWidth;
+  const contentMaxWidth = opts.columnW
+    ? clampContentWidth(requestedWidth, opts.columnW)
+    : clampLoadWidth(requestedWidth);
   // Playwright evaluate takes exactly ONE serializable arg — bundle them.
   const templateHtml = await page.evaluate(buildCleanTemplate, { maxWidthPx: contentMaxWidth, background });
   const detection = await page.evaluate(detectSectionsInPage, selector);
   const prelude = await page.evaluate(capturePreludeInPage);
   const docTitle = await page.evaluate(() => (document.title || '').trim() || null);
+  // Read-only audit of the source, gathered on the visit we already make: the
+  // document's own print CSS, fixed/viewport-sized blocks and images that
+  // failed to load. `tympan lint` explains these; nothing here changes output.
+  const audit = await page.evaluate(auditSourceInPage);
   const footerHtml = await page.evaluate(() => {
     // Trailing band that becomes part of the last page. Ordered: deck-style
     // centered block, semantic <footer>, landing-style trailing .footer div
@@ -117,7 +141,38 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
     return band ? band.outerHTML : null;
   });
   await page.close();
-  return { templateHtml, detection, prelude, footerHtml, background, contentMaxWidth, docTitle, blocked: gate.blocked() };
+  return {
+    templateHtml,
+    detection,
+    prelude,
+    footerHtml,
+    background,
+    contentMaxWidth,
+    contentWidthRequested: Math.round(requestedWidth),
+    docTitle,
+    audit,
+    inlinedAssets,
+    blocked: gate.blocked(),
+  };
+}
+
+/**
+ * Fonts settle deterministically: a stylesheet `@import` applies after the
+ * load event and its font binaries only START loading the next frame, so a
+ * single document.fonts.ready can resolve while nothing has been enqueued
+ * yet (observed as byte-differing PDFs from the same input under machine
+ * load). Proceed only after two consecutive rounds with nothing loading.
+ */
+async function fontsSettled(page) {
+  await page.evaluate(async () => {
+    for (let clear = 0, round = 0; clear < 2 && round < 10; round++) {
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+      await document.fonts.ready;
+      const loading = Array.from(document.fonts).some((f) => f.status === 'loading');
+      clear = loading ? 0 : clear + 1;
+    }
+    return true;
+  });
 }
 
 /**
@@ -138,18 +193,10 @@ export async function printSection(browser, templateHtml, sectionHtml, outPath, 
     await page.setContent(docHtml, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready.then(() => true));
     await page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 30000 }).catch(() => {});
-    const { h, w } = await page.evaluate(() => {
-      const el = document.querySelector('main');
-      const r = el ? el.getBoundingClientRect() : { height: 400, width: 800 };
-      // scrollWidth catches content that overflows the column (wide images,
-      // pre, wide tables) — printing that would clip the right edge.
-      const sw = Math.max(
-        document.documentElement.scrollWidth,
-        document.body ? document.body.scrollWidth : 0,
-        r.width
-      );
-      return { h: r.height, w: sw };
-    });
+    // `complete` is true for a FAILED image too, and a failed image prints as
+    // blank space — the silent loss this measures. Taken here, not only on the
+    // source page, because this is the layout whose bytes become the PDF.
+    const { h, w, lastBlockKind, brokenImages } = await page.evaluate(measureBlockInPage, 'main');
     const usableH = geo.H_IN - geo.margins.top - geo.margins.bottom;
     const usableW = geo.W_IN - geo.margins.left - geo.margins.right;
     // Open-loop measurement cannot be fully trusted: late font swaps make the
@@ -164,6 +211,11 @@ export async function printSection(browser, templateHtml, sectionHtml, outPath, 
     const hIn = h / 96;
     const wIn = w / 96;
     const heightBound = hIn > usableH;
+    // Tracked separately from the combined scale: it is the width bound that
+    // silently shrinks every page of a document laid out wider than its own
+    // printed column, and it is reported as one document-wide finding, not as
+    // one "page shrank" per sheet.
+    const widthScaleUsed = Math.min(1, usableW / wIn);
     let scale = Math.min(1, usableH / hIn, usableW / wIn) * (heightBound ? 0.985 : 1);
     const pdfOpts = {
       path: outPath,
@@ -179,16 +231,101 @@ export async function printSection(browser, templateHtml, sectionHtml, outPath, 
       },
       displayHeaderFooter: false,
     };
+    let scaleUsed = scale;
     for (let attempt = 0; attempt < 6; attempt++) {
+      scaleUsed = scale;
       await page.pdf({ ...pdfOpts, scale });
       const doc = await PDFDocument.load(fs.readFileSync(outPath));
       if (doc.getPageCount() === 1) break;
       scale *= 0.9;
     }
-    return h;
+    // The judged page record: the measured DOM height carried through the
+    // shrink actually applied, against the usable text area (inches to CSS px
+    // at 96/inch, the unit spill.test.mjs reasons in). An estimate by
+    // construction — the print lays out at the page width, not the load
+    // viewport — but the right shape for flagging a sparse sheet, and immune
+    // to the thing that makes coverage metrics useless: a painted background.
+    return {
+      heightPx: Math.round(h),
+      widthPx: Math.round(w),
+      scaleUsed,
+      widthScaleUsed,
+      contentHeightPx: Math.round(h * scaleUsed),
+      usableHeightPx: Math.round(usableH * 96),
+      lastBlockKind,
+      brokenImages,
+    };
   } finally {
     await page.close();
   }
+}
+
+/**
+ * Measure every section for the page it would be printed on, WITHOUT printing.
+ *
+ * The same layout the printer uses — the clean template at the page's own
+ * content width, fonts and images settled — so `tympan preview` can show where
+ * the cut will fall and how full each sheet will be before a single byte of
+ * PDF exists. The shrink here is the printer's INITIAL estimate; the printer
+ * still closes the loop by printing and counting pages, which a preview cannot
+ * know. Anything that prints must go through `printSection`.
+ *
+ * @returns {Promise<Array<object>>} per-section measurements, judged page
+ *   records and a screenshot path for each
+ */
+export async function measureSections(browser, templateHtml, sections, geo, opts = {}) {
+  const usableH = geo.H_IN - geo.margins.top - geo.margins.bottom;
+  const usableW = geo.W_IN - geo.margins.left - geo.margins.right;
+  const out = [];
+  for (let i = 0; i < sections.length; i++) {
+    const docHtml = templateHtml.replace('<main></main>', '<main>' + sections[i].html + '</main>');
+    const page = await browser.newPage({ viewport: { width: geo.contentW, height: 1000 } });
+    const gate = armRequestPolicy(page, {
+      offline: opts.offline,
+      allowNet: opts.allowNet,
+      onProgress: opts.onProgress,
+    });
+    await gate.arm();
+    try {
+      await page.setContent(docHtml, { waitUntil: 'load' });
+      await fontsSettled(page);
+      await page
+        .waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 30000 })
+        .catch(() => {});
+      const m = await page.evaluate(measureBlockInPage, 'main');
+      const hIn = m.h / 96;
+      const wIn = m.w / 96;
+      const heightBound = hIn > usableH;
+      const scaleUsed = Math.min(1, usableH / hIn, usableW / wIn) * (heightBound ? 0.985 : 1);
+      let shot = null;
+      if (opts.shotDir && m.h > 0 && m.h <= 8000) {
+        const file = path.join(opts.shotDir, `sheet-${i}.jpg`);
+        try {
+          await page.locator('main').screenshot({ path: file, type: 'jpeg', quality: 78 });
+          shot = file;
+        } catch {
+          shot = null; // a preview without its picture is still a preview
+        }
+      }
+      out.push({
+        id: sections[i].id,
+        title: sections[i].title ?? null,
+        heightPx: Math.round(m.h),
+        widthPx: Math.round(m.w),
+        scaleUsed,
+        widthScaleUsed: Math.min(1, usableW / wIn),
+        contentHeightPx: Math.round(m.h * scaleUsed),
+        usableHeightPx: Math.round(usableH * 96),
+        lastBlockKind: m.lastBlockKind,
+        brokenImages: m.brokenImages,
+        shot,
+      });
+      if (opts.onProgress) opts.onProgress('measured', { index: i + 1, total: sections.length, id: sections[i].id });
+    } finally {
+      await page.close();
+    }
+  }
+  return out;
 }
 
 /**
@@ -199,52 +336,18 @@ export async function runPass(browser, templateHtml, sections, geo, workdir, onP
   const perSection = [];
   for (let i = 0; i < sections.length; i++) {
     const f = path.join(workdir, `pg-${i}.pdf`);
-    const h = await printSection(browser, templateHtml, sections[i].html, f, geo, opts);
+    const measure = await printSection(browser, templateHtml, sections[i].html, f, geo, opts);
     const doc = await PDFDocument.load(fs.readFileSync(f));
     const pages = doc.getPageCount();
-    perSection.push({ id: sections[i].id, pages, heightPx: Math.round(h) });
+    perSection.push({ id: sections[i].id, pages, ...measure });
     files.push(f);
     if (onProgress) onProgress('section', { index: i + 1, total: sections.length, id: sections[i].id, pages });
   }
   return { files, perSection };
 }
 
-/**
- * Write a PDF outline (bookmarks panel) with one entry per page, using
- * low-level pdf-lib objects (pdf-lib 1.x has no high-level outline API).
- * Each entry targets the top of its page with /Fit destination.
- * @param {import('pdf-lib').PDFDocument} doc
- * @param {import('pdf-lib').PDFPage[]} pages
- * @param {Array<{title: string}>} entries
- */
-function writeOutline(doc, pages, entries) {
-  const ctx = doc.context;
-  const outlinesRef = ctx.nextRef();
-  const pageRefs = pages.map((p) => p.ref);
-  const itemRefs = entries.map(() => ctx.nextRef());
-  entries.forEach((entry, i) => {
-    const item = {
-      Title: PDFHexString.fromText(entry.title),
-      Parent: outlinesRef,
-      Count: 0,
-      Dest: [pageRefs[Math.min(i, pageRefs.length - 1)], 'Fit'],
-    };
-    if (i > 0) item.Prev = itemRefs[i - 1];
-    if (i < entries.length - 1) item.Next = itemRefs[i + 1];
-    ctx.assign(itemRefs[i], ctx.obj(item));
-  });
-  ctx.assign(
-    outlinesRef,
-    ctx.obj({
-      Type: 'Outlines',
-      First: itemRefs[0],
-      Last: itemRefs[itemRefs.length - 1],
-      Count: entries.length,
-    })
-  );
-  doc.catalog.set(PDFName.of('Outlines'), outlinesRef);
-  doc.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'));
-}
+// (writeOutline moved to finalize.js so flow mode can write it on a loaded
+// document — one implementation, both producers)
 
 /**
  * Parse a CSS color to {r,g,b} in 0..1 for PDF painting. Supports #rgb,
@@ -356,16 +459,15 @@ export async function mergeCentered(items, outPath, geo, opts = {}) {
   if (opts.outline && opts.outline.length) {
     writeOutline(dst, pages, opts.outline);
   }
-  dst.setProducer(PRODUCER);
-  dst.setCreationDate(FIXED_DATE);
-  dst.setModificationDate(FIXED_DATE);
-  if (opts.contentHash) dst.setKeywords([`tympan:${opts.contentHash}`]);
-  // /ID from the input-derived hash (output bytes would be circular):
-  // identical input -> identical /ID.
-  const idSeed = opts.contentHash || PRODUCER;
-  const idHex = crypto.createHash('sha256').update('tympan-id\0' + idSeed).digest('hex').slice(0, 32);
-  const id = PDFHexString.of(idHex);
-  dst.context.trailerInfo.ID = dst.context.obj([id, id]);
+  // Shared with flow mode (finalize.js), which prints outside pdf-lib and
+  // finalises the bytes on disk — same Producer, same dates, same /ID rule.
+  applyDeterministicMetadata(dst, opts);
+  // Content-identical resources arrive duplicated. Measured: Chromium subsets
+  // fonts PER SECTION PRINT (28 /FontFile copies on the Kitch deck) and their
+  // contents are distinct, so only content-level dedup is trip-safe here —
+  // the byte-level collapse the plan measured comes from `--flow` printing
+  // the body once instead of once per section.
+  const deduped = dedupeIdenticalStreams(dst);
   const outBytes = await dst.save({ useObjectStreams: false, updateMetadata: false });
   fs.writeFileSync(outPath, outBytes);
 }
@@ -387,7 +489,7 @@ export async function runPassFull(browser, templateHtml, sections, geo, workdir,
   await mergeCentered(pass.files.map((f) => ({ file: f })), outPath, geo, opts);
   pass.files.forEach((f) => fs.unlinkSync(f));
   if (onProgress) onProgress('pass-done', { sections: sections.length, outPath });
-  return outPath;
+  return { outPath, perSection: pass.perSection };
 }
 
 /**
@@ -396,7 +498,7 @@ export async function runPassFull(browser, templateHtml, sections, geo, workdir,
  * stable URL is a different-input problem, not a determinism bug) plus every
  * option that can change output bytes. Recorded as the PDF's keyword.
  */
-function hashInput(inputPath, options) {
+export function hashInput(inputPath, options) {
   const h = crypto.createHash('sha256');
   if (/^https?:\/\//i.test(inputPath)) {
     h.update('url\0' + inputPath);
@@ -421,6 +523,29 @@ function hashInput(inputPath, options) {
     options.waitFor ?? null,
     options.waitTimeout ?? null,
   ]));
+  // Flow is opt-in, and its options are hashed ONLY when it is on: adding a
+  // key to the array above would change the digest (and therefore every byte)
+  // of section-mode output for existing users, which this release must not do.
+  // NOTE: this if lives OUTSIDE the block comment on purpose. It was once
+  // glued to the last comment line, and then --flow, --page-numbers and
+  // fill presets never reached the digest: two competing configurations
+  // could report the same input hash. This line must execute.
+  if (options.flow) h.update('flow\0' + (options.pageNumbers ? 'page-numbers' : ''));
+
+  // W2/W3 options change bytes too, but they are all opt-in: hashing them
+  // only when set keeps the digest (and therefore every byte) of a default
+  // section-mode run EXACTLY where v0.7 left it.
+  if (options.layout === 'auto' || options.toc || options.pageFooter || (options.fill && options.fill !== 'balanced')) {
+    h.update(
+      'extra\0' +
+        JSON.stringify({
+          layout: options.layout || null,
+          toc: !!options.toc,
+          pageFooter: options.pageFooter || null,
+          fill: options.fill || null,
+        })
+    );
+  }
   return h.digest('hex').slice(0, 16);
 }
 
@@ -437,15 +562,39 @@ export function resolveGeometry(options = {}) {
   const orientation = (options.orientation || 'portrait').toLowerCase();
   const landscape = orientation === 'landscape';
   const margins = { ...DEFAULT_MARGINS, ...(options.margins || {}) };
-  const contentW = clampLoadWidth(
-    options.contentWidth ?? (landscape ? CONTENT_W : PORTRAIT_CONTENT_W)
-  );
+  // Inches are DERIVED from the chosen format's points (72/inch), never
+  // hard-coded: `--format letter` used to print into an A4-shaped box
+  // (8.27x11.69in) and then merge onto a 612x792pt letter page, so the page
+  // Chromium laid out was not the page the document landed on. Found by the
+  // preview's sheet-size test, 2026-10-16.
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const W_IN = round2((landscape ? base.W : base.H) / 72);
+  const H_IN = round2((landscape ? base.H : base.W) / 72);
+  // The printable column: the sheet minus its side margins. This is the width
+  // Chromium lays the printed page out in, so it is the ceiling for the
+  // layout — see clampContentWidth for the 0.902 story.
+  const columnW = Math.round((W_IN - margins.left - margins.right) * 96);
+  if (!(columnW > 0) || !(H_IN - margins.top - margins.bottom > 0)) {
+    throw new Error(
+      `margins leave no printable area: ${margins.left}+${margins.right}in of a ${W_IN}in sheet, ` +
+        `${margins.top}+${margins.bottom}in of ${H_IN}in`
+    );
+  }
+  // Layout width for the printed page: detected/requested width, capped at the
+  // column. `--content-width` can narrow it; nothing can widen it past paper.
+  const contentW = clampContentWidth(options.contentWidth ?? columnW, columnW);
+  // Width the SOURCE is rendered at while measuring. Deliberately not the
+  // print width: a 1026px deck measured at 698px would trip its own tablet
+  // media queries, so detection would describe a page nobody prints.
+  const loadW = clampLoadWidth(landscape ? CONTENT_W : PORTRAIT_CONTENT_W);
   return {
     W: landscape ? base.W : base.H,
     H: landscape ? base.H : base.W,
-    W_IN: landscape ? 11.69 : 8.27,
-    H_IN: landscape ? 8.27 : 11.69,
+    W_IN,
+    H_IN,
+    columnW,
     contentW,
+    loadW,
     margins,
   };
 }
@@ -469,7 +618,14 @@ export function resolveOutputs(inputPath, options = {}) {
   return { master, email };
 }
 
-export async function convert(inputPath, options = {}) {
+export async function convert(inputPath, raw = {}) {
+  // A preset is a documented bundle of defaults folded UNDER explicit options
+  // (src/presets.js). Applied here, not just in the CLI, so the HTTP API can
+  // use the same vocabulary; the CLI validates the name for a friendly error.
+  const options = raw.preset ? applyPreset(raw.preset, raw) : raw;
+  if (raw.preset && !PRESET_NAMES.includes(raw.preset)) {
+    throw new Error(`unknown preset "${raw.preset}" (known presets: ${PRESET_NAMES.join(', ')})`);
+  }
   const { onProgress } = options;
   const isUrl = /^https?:\/\//i.test(inputPath);
   if (!isUrl && !fs.existsSync(inputPath)) {
@@ -496,16 +652,36 @@ export async function convert(inputPath, options = {}) {
       // Count every blocked request centrally and pass the wrapped progress
       // down so security blocks surface in whatever reporting the caller uses.
       let blockedCount = 0;
+      const blockedDetails = [];
       const progress = (event, data) => {
-        if (event === 'blocked') blockedCount++;
+        if (event === 'blocked') {
+          blockedCount++;
+          // Keep the reason and a bounded sample of URLs: a count alone cannot
+          // tell "you asked for offline mode" from "your logo never loaded".
+          if (blockedDetails.length < 50) blockedDetails.push({ url: data.url, reason: data.reason });
+        }
         if (onProgress) onProgress(event, data);
       };
       const secOpts = { offline: options.offline, allowNet: options.allowNet, onProgress: progress };
-      const { templateHtml, detection, prelude, footerHtml, background, contentMaxWidth, docTitle } =
-        await loadAndExtract(browser, inputPath, options.selector, {
-          loadW: geo.contentW,
+      const {
+        templateHtml,
+        detection,
+        prelude,
+        footerHtml,
+        background,
+        contentMaxWidth,
+        contentWidthRequested,
+        docTitle,
+        audit,
+        inlinedAssets,
+      } = await loadAndExtract(browser, inputPath, options.selector, {
+          loadW: geo.loadW,
+          columnW: geo.columnW,
           background: options.background,
-          contentMaxWidth: options.contentMaxWidth,
+          // `contentWidth` is the documented layout width; contentMaxWidth is
+          // the older name for the same thing. Either narrows the layout, and
+          // the column cap still applies.
+          contentMaxWidth: options.contentWidth ?? options.contentMaxWidth,
           waitFor: options.waitFor,
           waitTimeout: options.waitTimeout,
           ...secOpts,
@@ -517,26 +693,250 @@ export async function convert(inputPath, options = {}) {
         detection.strategy === 'whole-document' ? null : prelude
       );
       const limited = options.teaser ? sections.slice(0, options.teaser) : sections;
+      // ---------------------------------------------------- layout auto
+      // Explicit --flow always wins. With --layout auto the chooser measures
+      // every section first (the numbers printSection starts from) and picks
+      // flow only when the plan's rule says so: more sheet area wasted than
+      // the target allows, or a section starting to shrink below the floor.
+      // The result states what was picked AND the arithmetic behind it.
+      let layoutChoice = null;
+      let useFlow = options.flow === true;
+      if (!useFlow && options.layout === 'auto') {
+        const measured = await measureSections(browser, templateHtml, limited, geo, { ...secOpts, waitFor: options.waitFor, waitTimeout: options.waitTimeout });
+        layoutChoice = chooseLayout({
+          sections: measured,
+          usablePx: Math.round((geo.H_IN - geo.margins.top - geo.margins.bottom) * 96),
+          targetFill: options.targetFill ?? 0.7,
+        });
+        if (onProgress) onProgress('layout-chosen', layoutChoice);
+        useFlow = layoutChoice.picked === 'flow';
+      }
+      // The digest must reflect the layout the run actually used, or two
+      // runs of the same input with the same auto options could share a /ID
+      // while producing a different number of pages.
+      const hashedOpts = useFlow && !options.flow ? { ...options, flow: true } : options;
       const docOpts = {
         title: options.title || docTitle || null,
         author: options.author || null,
         subject: options.subject || null,
         creator: options.creator || null,
         outline: options.outline
-          ? limited.map((s, i) => ({ title: s.title || s.id || `Section ${i + 1}` }))
+          ? limited.map((s, i) => ({
+              title: s.title || s.id || `Section ${i + 1}`,
+              page: (options.toc ? estimateTocPages(limited.length) : 0) + i,
+            }))
           : null,
         bgColor: cssColorToRgb(background),
-        contentHash: hashInput(inputPath, options),
+        contentHash: hashInput(inputPath, hashedOpts),
         offline: options.offline,
         allowNet: options.allowNet,
       };
+      // ---------------------------------------------------------- flow
+      // Opt-in: let Chromium paginate the whole body once. Nothing is
+      // merged, so the deterministic tail runs on the printed file, and every
+      // page record is measured from that file rather than from the DOM (the
+      // DOM has no idea where Chromium broke the pages).
+      if (useFlow) {
+        if (options.email) {
+          throw new Error('--email is section-mode only: flow mode prints one document, not a downscaled variant');
+        }
+        const runningFooter = options.pageFooter || (options.footerFromTitle && docTitle ? docTitle : null);
+        // `--fill tight` (plan section 3.4): a bounded candidate ladder, NOT an
+        // open shrink loop. Each candidate is one deterministic scale over the
+        // WHOLE body (uniform within the document), the floor is 0.97 by
+        // construction, and the winner is reported with its arithmetic.
+        const candidates = options.fill === 'tight' ? [1, 0.98, 0.97] : [1];
+        const attempts = [];
+        for (const candidate of candidates) {
+          if (onProgress) onProgress('print-flow', { sections: limited.length, scale: candidate });
+          const flowHtml = buildFlowDocument(templateHtml, limited.map((s) => s.html).join('\n'), {
+            pageNumbers: !!options.pageNumbers,
+            pageFooter: runningFooter,
+            fill: options.fill,
+          });
+          const rawPath = path.join(workdir, `flow-raw-${candidate}.pdf`);
+          const thisDom = await printFlow(browser, flowHtml, rawPath, geo, {
+            ...secOpts,
+            waitFor: options.waitFor,
+            waitTimeout: options.waitTimeout,
+            scale: candidate,
+          });
+          const thisAnalysis = await analyzeFlowPdf(rawPath, geo);
+          attempts.push({ scale: candidate, pages: thisAnalysis.pageCount, analysis: thisAnalysis, dom: thisDom, rawPath });
+        }
+        // Fewest pages wins; ties go to the larger scale (a real near-fit is
+        // the only thing that justifies shrinking, and shrinking never buys a
+        // tie). Deterministic by construction — the ladder is fixed.
+        attempts.sort((a, b) => a.pages - b.pages || b.scale - a.scale);
+        const analysis = attempts[0].analysis;
+        const dom = attempts[0].dom;
+        const chosenScale = attempts[0].scale;
+        const fillPolicy = candidates.length > 1
+          ? { policy: options.fill, scaleApplied: chosenScale, candidates: candidates.map((c) => c), attempts: attempts.map((a) => ({ scale: a.scale, pages: a.pages })) }
+          : null;
+        if (onProgress) onProgress('flow-chosen', { scale: chosenScale, pages: analysis.pageCount });
+        // TOC (plan W3): one entry per section, sheet numbers measured from
+        // a pass WITHOUT the TOC, then corrected when the TOC's own sheets
+        // shift the numbering. Bounded at 3 convergence passes; the result
+        // reports whether it converged. The ladder above already picked the
+        // tight candidate, so TOC prints reuse it — determinism is per
+        // option set, and the TOC never re-opens the fill decision.
+        let finalAnalysis = analysis;
+        let printedDom = dom;
+        let rawUsed = attempts[0].rawPath;
+        let tocInfo = null;
+        if (options.toc) {
+          const tocSheets = estimateTocPages(limited.length);
+          // In flow mode the TOC is a BLOCK, not a guaranteed sheet — it can
+          // share sheet 1 with the first sections. So there is no fixed
+          // offset: the mapping runs over every sheet with lead anchors
+          // (titles never appear in rows), and printing real sheet numbers
+          // is what the convergence loop works toward.
+          const sheetFallback = (numbers, i) =>
+            numbers[i] ?? (i > 0 ? numbers[i - 1] + 1 : 1);
+          let numbers = mapSectionsToPages(analysis, limited, { preferLead: true });
+          for (let iter = 0; iter < 3; iter++) {
+            const entries = limited.map((s, i) => ({
+              title: s.title ?? null,
+              id: s.id,
+              page: sheetFallback(numbers, i),
+            }));
+            const bodyHtml = buildTocHtml(entries) + '\n' + limited.map((s) => s.html).join('\n');
+            rawUsed = path.join(workdir, `flow-toc-${iter}.pdf`);
+            printedDom = await printFlow(
+              browser,
+              buildFlowDocument(templateHtml, bodyHtml, {
+                pageNumbers: !!options.pageNumbers,
+                pageFooter: runningFooter,
+                fill: options.fill,
+              }),
+              rawUsed,
+              geo,
+              { ...secOpts, waitFor: options.waitFor, waitTimeout: options.waitTimeout, scale: chosenScale }
+            );
+            finalAnalysis = await analyzeFlowPdf(rawUsed, geo);
+            const mapped = mapSectionsToPages(finalAnalysis, limited, { preferLead: true });
+            const matched = mapped.every((p, i) => (numbers[i] ?? -1) === p);
+            tocInfo = { pages: tocSheets, entries: entries.length, stable: matched, iterations: iter + 1, numbers: mapped.map((p, i) => p ?? sheetFallback(numbers, i)) };
+            if (matched) break;
+            numbers = mapped.map((p, i) => p ?? numbers[i]);
+          }
+        }
+        if (onProgress && finalAnalysis !== analysis && options.toc) {
+          onProgress('toc-settled', { pages: finalAnalysis.pageCount, stable: tocInfo && tocInfo.stable });
+        }
+        const medianText = finalAnalysis.medianTextHeight || 0;
+        const pages = finalAnalysis.pages.map((p) =>
+          judgePage({
+            index: p.index,
+            sectionId: null,
+            contentHeightPx: p.contentHeightPx,
+            usableHeightPx: p.usableHeightPx,
+            // The scale is 1 because it flowed — except in opt-in `--fill
+            // tight`, where the bounded winning candidate is carried, never
+            // assumed.
+            scaleApplied: chosenScale,
+            widthScale: 1,
+            lastBlockKind: medianText && p.lastTextHeight >= medianText * 1.25 ? 'heading' : 'text',
+            // Chromium never reports which page a DOM block landed on, so a
+            // split keep-together block cannot be detected from the PDF. Null
+            // is "unmeasured"; it must never read as "verified clean".
+            keptTogether: null,
+          }, { layout: 'flow' }) // the mode this branch IS: no section judgement field
+        );
+        for (const p of pages) p.measuredFrom = 'pdf';
+        // The mode this branch set stamps and records just above — said, not
+        // inferred (flowOutput's stamp inference remains for callers that
+        // genuinely do not know).
+        const quality = summarizeQuality(pages, { targetFill: options.targetFill, layout: 'flow' });
+        // Outline (plan section 3.5): flow mode now SUPPORTS auto bookmarks —
+        // each section's heading is located in the PDF's own text layer and
+        // the outline gets a real destination, one page for prose documents.
+        let outlineEntries = null;
+        if (options.outline) {
+          // Same anchors as the TOC mapping (leads win when the TOC is
+          // printed) — the outline must point where the reader really lands.
+          const mapped = mapSectionsToPages(finalAnalysis, limited, { preferLead: !!options.toc });
+          const titles = limited.map((s, i) => s.title || s.id || `Section ${i + 1}`);
+          outlineEntries = flowOutlineEntries(titles, mapped);
+        }
+        const finalPath = path.join(workdir, 'flow-final.pdf');
+        await finalizePdf(rawUsed, finalPath, { ...docOpts, outline: outlineEntries });
+        fs.copyFileSync(finalPath, outputs.master);
+        const strandedHeadingPages = pages.filter((p) => p.strandedHeading).map((p) => p.index);
+        const blocked = {
+          ...audit,
+          sourceBrokenImages: audit?.brokenImages || [],
+          brokenImages: [], // per-page image failures need the DOM; flow measures the PDF
+          blockedRequests: blockedDetails,
+        };
+        const verification = verifyFlow(finalAnalysis, {
+          probe: options.probe,
+          overflowPx: printedDom.overflowPx,
+          strandedHeadingPages,
+          keepTogetherBlocks: printedDom.keepTogetherBlocks,
+          scale: chosenScale,
+          fillPolicy,
+          sizeBytes: fs.statSync(outputs.master).size,
+        });
+        if (onProgress) onProgress('pass-done', { sections: limited.length, outPath: outputs.master });
+        return {
+          master: outputs.master,
+          email: null,
+          emailStats: null,
+          detection,
+          contentMaxWidth,
+          contentWidthRequested,
+          geometry: geo,
+          background,
+          blockedRequests: blockedCount,
+          layout: 'flow',
+          layoutChoice,
+          assetInlining: inlinedAssets,
+          pageNumbers: !!options.pageNumbers,
+          pageFooter: runningFooter || null,
+          toc: tocInfo,
+          fillPolicy: fillPolicy,
+          outline: outlineEntries ? { entries: outlineEntries.length, mappedBy: 'text-layer' } : null,
+          pages,
+          quality,
+          audit: blocked,
+          flow: {
+            overflowPx: printedDom.overflowPx,
+            widthPx: printedDom.widthPx,
+            pageNumbers: !!options.pageNumbers,
+            keepTogetherBlocks: printedDom.keepTogetherBlocks,
+          },
+          verification,
+        };
+      }
+
+      // ------------------------------------------------------------ deck
       if (onProgress) onProgress('print-master', { sections: limited.length });
-      const master = await runPassFull(browser, templateHtml, limited, geo, workdir, onProgress, { ...docOpts, passName: 'master' });
+      // `--toc` in section mode is simple arithmetic: every section prints as
+      // exactly one sheet (that is the mode's invariant), so the TOC's sheet
+      // count fixes every number before a single print happens. No convergence
+      // loop needed; the report says so.
+      const tocSheets = options.toc ? estimateTocPages(limited.length) : 0;
+      const printedSections = options.toc
+        ? [
+            {
+              id: 'tympan-toc',
+              title: 'Contents',
+              html: buildTocHtml(
+                limited.map((s, i) => ({ title: s.title ?? null, id: s.id, page: tocSheets + i + 1 }))
+              ),
+            },
+            ...limited,
+          ]
+        : limited;
+      const masterPass = await runPassFull(browser, templateHtml, printedSections, geo, workdir, onProgress, { ...docOpts, passName: 'master' });
+      const master = masterPass.outPath;
       let email = null;
       let emailImgStats = null;
       if (options.email) {
         if (onProgress) onProgress('print-email', {});
-        const page = await browser.newPage({ viewport: { width: geo.contentW, height: 1200 } });
+        const page = await browser.newPage({ viewport: { width: geo.loadW, height: 1200 } });
         const gateEml = armRequestPolicy(page, { ...secOpts, mainUrl: pathToFileURL(inputPath).href });
         await gateEml.arm();
         await page.goto(pathToFileURL(inputPath).href, { waitUntil: 'networkidle', timeout: 120000 });
@@ -556,7 +956,9 @@ export async function convert(inputPath, options = {}) {
           mergeFooter(detectionEml.sections, footerHtml),
           detectionEml.strategy === 'whole-document' ? null : preludeEml
         ).slice(0, limited.length);
-        email = await runPassFull(browser, templateHtml, sectionsEml, geo, workdir, onProgress, { ...docOpts, passName: 'email' });
+        // The email variant carries no TOC: it is a downscaled reading copy,
+        // and its section list is built from a fresh detection pass.
+        email = (await runPassFull(browser, templateHtml, sectionsEml, geo, workdir, onProgress, { ...docOpts, passName: 'email' })).outPath;
         emailImgStats = imgStats;
       }
       fs.copyFileSync(master, outputs.master);
@@ -567,13 +969,60 @@ export async function convert(inputPath, options = {}) {
         emailStats: emailImgStats,
         detection,
         contentMaxWidth,
+        contentWidthRequested,
+        geometry: geo,
         background,
         blockedRequests: blockedCount,
+        layout: 'section',
+        layoutChoice,
+        assetInlining: inlinedAssets,
+        pageFooter: options.pageFooter || (options.footerFromTitle && docTitle ? docTitle : null),
+        toc: options.toc
+          ? {
+              pages: tocSheets,
+              entries: limited.length,
+              stable: true,
+              iterations: 0,
+              numbers: limited.map((s, i) => tocSheets + i + 1),
+            }
+          : null,
+        // One record per printed page, index-aligned with the final PDF, so a
+        // report can say WHICH page is half empty instead of averaging the
+        // problem away. Measured in the DOM before the print, never read off
+        // the rendered pixels.
+        pages: masterPass.perSection.map((p, i) => judgePage({
+          index: i + 1,
+          sectionId: p.id,
+          contentHeightPx: p.contentHeightPx,
+          usableHeightPx: p.usableHeightPx,
+          scaleApplied: p.scaleUsed,
+          widthScale: p.widthScaleUsed,
+          lastBlockKind: p.lastBlockKind,
+          // Section layout prints a section onto exactly one page, so a
+          // break-inside:avoid block cannot split here and nothing is traded
+          // away. Flow layout measures this for real.
+          keptTogether: true,
+        })),
+      };
+      result.quality = summarizeQuality(result.pages, { targetFill: options.targetFill });
+      // Everything the document asked for and did not get, carried with the
+      // result so `tympan lint` can name one lost image instead of only
+      // reporting a sparse page. `brokenImages` is per printed page (what the
+      // PDF is missing); `sourceBrokenImages` is what the author's own page
+      // could not load — the fallback when sections dropped the reference
+      // entirely.
+      result.audit = {
+        ...audit,
+        sourceBrokenImages: audit?.brokenImages || [],
+        brokenImages: masterPass.perSection.flatMap((p, i) =>
+          (p.brokenImages || []).map((b) => ({ ...b, page: i + 1 }))
+        ),
+        blockedRequests: blockedDetails,
       };
       if (options.verify !== false) {
         result.verification = await verifyOutputs(result, {
           ...options,
-          expectedPages: limited.length,
+          expectedPages: options.toc ? limited.length + tocSheets : limited.length,
         });
       }
       return result;

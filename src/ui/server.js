@@ -72,7 +72,8 @@ const PAGE = `<!DOCTYPE html>
 <script>
   const log = (m) => { document.getElementById('log').textContent += m + '\\n'; };
   const status = (m) => { document.getElementById('status').textContent = m; };
-  const es = new EventSource('/events');
+  const KEY_PLACE = '__TYP_KEY__';
+  const es = new EventSource('/events?key=' + KEY_PLACE);
   es.onmessage = (e) => {
     const d = JSON.parse(e.data);
     if (d.event === 'detected') log('detected ' + d.data.sections.length + ' section(s) via ' + d.data.strategy);
@@ -80,13 +81,13 @@ const PAGE = `<!DOCTYPE html>
     else if (d.event === 'pass-done') log('merged ' + d.data.sections + ' page(s)');
     else if (d.event === 'converted') {
       status('done');
-      document.getElementById('pdf').src = '/pdf?t=' + Date.now();
+      document.getElementById('pdf').src = '/pdf?key=' + KEY_PLACE + '&t=' + Date.now();
     } else if (d.event === 'error') { status('failed: ' + d.data.message); log('ERROR ' + d.data.message); }
   };
   async function convert(body) {
     status('converting…');
     document.getElementById('log').textContent = '';
-    const r = await fetch('/convert', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch('/convert?key=' + KEY_PLACE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json();
     if (!j.ok) { status('failed: ' + j.error); log('ERROR ' + j.error); }
   }
@@ -102,7 +103,7 @@ const PAGE = `<!DOCTYPE html>
   document.getElementById('watch').onclick = () => {
     const file = document.getElementById('file').value.trim();
     if (!file) { status('enter a file path first'); return; }
-    convert({ path: file }).then(() => fetch('/watch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: file }) }))
+    convert({ path: file }).then(() => fetch('/watch?key=' + KEY_PLACE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: file }) }))
       .then((r) => r.json()).then((j) => { document.getElementById('watchState').textContent = j.ok ? 'watching for changes…' : ('watch failed: ' + j.error); });
   };
 </script>
@@ -121,6 +122,10 @@ function json(res, code, obj) {
  * @returns {Promise<import('node:http').Server>}
  */
 export function createUiServer(options = {}) {
+  // Per-session bearer token. It travels in the QUERY string, not a header:
+  // EventSource and the PDF iframe cannot carry custom headers.
+  const token = options.token || crypto.randomBytes(24).toString('base64url');
+  const page = PAGE.replaceAll('__TYP_KEY__', token);
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-ui-'));
   const state = {
     master: path.join(workdir, 'out.pdf'),
@@ -179,6 +184,13 @@ export function createUiServer(options = {}) {
 
   /** Read and parse a JSON body; responds 400 and returns null on garbage. */
   async function readJson(req, res) {
+    // Body-type gate behind the token: anything not application/json is
+    // refused before parsing (a no-preflight POST ships text/plain or none).
+    const cty = String(req.headers['content-type'] || '');
+    if (!/^application\/json\b/i.test(cty)) {
+      json(res, 415, { ok: false, error: 'refused: POST bodies must be application/json' });
+      return null;
+    }
     let body = '';
     for await (const chunk of req) {
       body += chunk;
@@ -195,12 +207,37 @@ export function createUiServer(options = {}) {
     }
   }
 
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://localhost');
+  // ---- the gate ---------------------------------------------------------
+  // Host allowlist: a hostile page reaching (or rebinding to) this port must
+  // present a loopback hostname on the port ACTUALLY bound, so a forged Host
+  // (evil.example) or a rebound DNS name fails. Combined with the per-session
+  // token required on every route, both the one-shot no-preflight POST and
+  // the rebinding read-back are refused.
+  const allowedHosts = new Set(['127.0.0.1', 'localhost', '::1']);
+  function gate(req, url) {
+    const host = String(req.headers.host || '');
+    const colon = host.lastIndexOf(':');
+    let name = (colon === -1 ? host : host.slice(0, colon)).toLowerCase().trim();
+    if (name.endsWith('.')) name = name.slice(0, -1); // trailing-dot form
+    if (name.startsWith('[') && name.endsWith(']')) name = name.slice(1, -1); // [::1]
+    const port = colon === -1 ? 80 : Number(host.slice(colon + 1));
+    const hostOk = allowedHosts.has(name) && port === req.socket.localPort;
+    const presented = url.searchParams.get('key') || '';
+    let tokenOk = false;
     try {
+      tokenOk = presented.length === token.length && crypto.timingSafeEqual(Buffer.from(presented), Buffer.from(token));
+    } catch { tokenOk = false; }
+    return hostOk && tokenOk;
+  }
+  const server = http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      if (!gate(req, url)) {
+        return json(res, 403, { ok: false, error: 'refused: run tympan-ui and use the URL it printed (per-session token required)' });
+      }
       if (req.method === 'GET' && url.pathname === '/') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(PAGE);
+        res.end(page);
       } else if (req.method === 'GET' && url.pathname === '/events') {
         res.writeHead(200, {
           'content-type': 'text/event-stream',
@@ -209,7 +246,10 @@ export function createUiServer(options = {}) {
         });
         res.write('retry: 2000\n\n');
         state.clients.add(res);
-        req.on('close', () => state.clients.delete(res));
+        req.on('close', () => {
+          state.clients.delete(res);
+          try { res.destroy(); } catch { /* socket already gone */ }
+        });
       } else if (req.method === 'GET' && url.pathname === '/pdf') {
         if (!state.ready || !fs.existsSync(state.master)) {
           return json(res, 404, { error: 'no PDF converted yet' });
@@ -241,6 +281,7 @@ export function createUiServer(options = {}) {
     }
   });
 
+  server.uiToken = token; // so bin prints the tokenized URL; tests pass options.token
   server.on('close', () => {
     clearInterval(state.watchTimer);
     fs.rmSync(workdir, { recursive: true, force: true });

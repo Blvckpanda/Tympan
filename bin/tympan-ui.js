@@ -14,5 +14,6 @@ if (!port) {
 
 const server = createUiServer();
 server.listen(port, '127.0.0.1', () => {
-  console.log(`tympan ui running at http://127.0.0.1:${port}`);
+  // The token is part of the URL on purpose: it is what gates every route.
+  console.log(`tympan ui running at http://127.0.0.1:${port}/?key=${server.uiToken}`);
 });

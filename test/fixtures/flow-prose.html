@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>flow prose</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; color: #1c1c1c; }
+  main { max-width: 698px; margin: 0 auto; }
+  section.page-section { padding: 8px 0 14px; }
+  h2 { font-size: 22px; margin: 0 0 8px; }
+  p { font-size: 15px; line-height: 1.55; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+  blockquote { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid #bbb; font-style: italic; }
+</style>
+</head>
+<body>
+<main>
+  <section class="page-section" id="s1">
+    <h2>One</h2>
+    <p>Ten short sections that individually occupy a fraction of a sheet. Section mode prints each on its own page; flow mode packs them until a sheet is full.</p>
+    <p>A second paragraph, so the section is taller than a heading but still nowhere near a page.</p>
+  </section>
+  <section class="page-section" id="s2">
+    <h2>Two</h2>
+    <p>Another section with a couple of sentences, the kind of content a subscription deck or a statement of work actually contains.</p>
+  </section>
+  <section class="page-section" id="s3">
+    <h2>Three</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Quantity</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td>First</td><td>1</td><td>Small</td></tr>
+        <tr><td>Second</td><td>2</td><td>Medium</td></tr>
+        <tr><td>Third</td><td>3</td><td>Large</td></tr>
+      </tbody>
+    </table>
+    <p>Text beneath the table.</p>
+  </section>
+  <section class="page-section" id="s4">
+    <h2>Four</h2>
+    <blockquote>A quoted line that must not be split across two sheets if it can be helped.</blockquote>
+    <p>Body copy after the quote.</p>
+  </section>
+  <section class="page-section" id="s5">
+    <h2>Five</h2>
+    <p>Section five of ten, with enough words to wrap onto three lines at this measure, and no more.</p>
+  </section>
+  <section class="page-section" id="s6">
+    <h2>Six</h2>
+    <ul>
+      <li>First point</li>
+      <li>Second point</li>
+      <li>Third point</li>
+    </ul>
+  </section>
+  <section class="page-section" id="s7">
+    <h2>Seven</h2>
+    <p>Section seven exists so the fixture spans more than one flowed page.</p>
+  </section>
+  <section class="page-section" id="s8">
+    <h2>Eight</h2>
+    <p>Section eight is ordinary prose and nothing more.</p>
+  </section>
+  <section class="page-section" id="s9">
+    <h2>Nine</h2>
+    <p>Section nine keeps the sequence honest, and gives the packer another block to place.</p>
+  </section>
+  <section class="page-section" id="s10">
+    <h2>Ten</h2>
+    <p>The last section, which must still appear in full at the end of the flow.</p>
+  </section>
+</main>
+</body>
+</html>

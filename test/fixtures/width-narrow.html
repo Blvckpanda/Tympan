@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>width narrow</title>
+<style>
+  body { font-family: sans-serif; margin: 0; color: #111; }
+  /* Narrower than A4's 698px column: it must print at 1.0, not be stretched
+     or scaled. A measurement floored by the load viewport reported 774px here. */
+  main { max-width: 600px; margin: 0 auto; }
+  section.page-section { padding: 16px; }
+  p { font-size: 16px; line-height: 1.5; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="page-section" id="one"><h2>One</h2><p>Six hundred pixels wide.</p></section>
+  <section class="page-section" id="two"><h2>Two</h2><p>And the second one.</p></section>
+</main>
+</body>
+</html>

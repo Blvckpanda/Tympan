@@ -30,6 +30,15 @@ export function detectSectionsInPage(selector) {
   // Section title for the PDF outline: first heading's text, else data-label,
   // aria-label, or title attr, else null. Capped so mega-headings don't bloat
   // the outline panel.
+  // First words of the section's own text. The TOC/outline mapper locates a
+  // section in the PDF text layer by its title when it has a heading — and
+  // by this lead-in when it does not (`--flow` documents can carry 40
+  // headingless entries). Whitespace is collapsed because pdfjs item joins
+  // and Chromium word spacing both inflate gaps.
+  const leadOf = (el) => {
+    const t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return t || null;
+  };
   const titleOf = (el) => {
     const h = el.querySelector('h1, h2, h3, h4, h5, h6');
     const raw =
@@ -51,6 +60,7 @@ export function detectSectionsInPage(selector) {
           html: el.outerHTML,
           id: el.id || `${selector}#${i + 1}`,
           title: titleOf(el),
+          lead: leadOf(el),
         })),
       };
     }
@@ -60,12 +70,12 @@ export function detectSectionsInPage(selector) {
   if (byClass.length) {
     return {
       strategy: 'page-section-class',
-      confidence: 0.9,
-      sections: byClass.map((el, i) => ({
-        html: el.outerHTML,
-        id: el.id || `section-${i + 1}`,
-        title: titleOf(el),
-      })),
+      confidence: 0.9,        sections: byClass.map((el, i) => ({
+          html: el.outerHTML,
+          id: el.id || `section-${i + 1}`,
+          title: titleOf(el),
+          lead: leadOf(el),
+        })),
     };
   }
 
@@ -79,6 +89,7 @@ export function detectSectionsInPage(selector) {
           html: el.outerHTML,
           id: el.getAttribute(attr) || `${attr}-${i + 1}`,
           title: titleOf(el),
+          lead: leadOf(el),
         })),
       };
     }
@@ -107,6 +118,7 @@ export function detectSectionsInPage(selector) {
         html: el.outerHTML,
         id: el.id || `section-${i + 1}`,
         title: titleOf(el),
+        lead: leadOf(el),
       })),
     };
   }
@@ -122,6 +134,7 @@ export function detectSectionsInPage(selector) {
         html: document.body.innerHTML,
         id: 'document',
         title: titleOf(document.body) || document.title || null,
+        lead: leadOf(document.body),
       },
     ],
   };

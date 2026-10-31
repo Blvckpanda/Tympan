@@ -19,6 +19,7 @@
 export {
   convert,
   convertMany,
+  measureSections,
   resolveGeometry,
   resolveOutputs,
   PAGE_GEOMETRY,
@@ -29,8 +30,50 @@ export { detectSectionsInPage, capturePreludeInPage, withPrelude, describeDetect
 export { findChromium, launchOptions } from './browser.js';
 export { downscaleImagesInPage, mergeFooter } from './email.js';
 export { verifyOutputs, extractPages, probeRegex } from './verify.js';
+export {
+  TARGET_FILL,
+  fillRatio,
+  blankTailPx,
+  judgePage,
+  summarizeQuality,
+  formatQualityLine,
+} from './metrics.js';
+export {
+  SEVERITY_RANK,
+  SCALE_WARN,
+  SCALE_SPREAD,
+  lintDocument,
+  summarizeLint,
+  failureReport,
+  lintExitCode,
+  formatLintReport,
+  auditSourceInPage,
+} from './lint.js';
 export { isPrivateTarget, armRequestPolicy } from './security.js';
 export { measurePageBackgroundAndWidth, buildCleanTemplate, clampLoadWidth } from './template.js';
+export { measureBlockInPage } from './measure.js';
+export {
+  PREVIEW_DEFAULT_PORT,
+  sheetSizePx,
+  buildPreviewReport,
+  previewPage,
+  contentTypeFor,
+  createPreviewServer,
+} from './preview.js';
+export {
+  SERVE_DEFAULT_PORT,
+  MAX_BODY_BYTES,
+  MAX_JOBS_PER_TENANT,
+  ALLOWED_JOB_OPTIONS,
+  parseApiKeys,
+  authorize,
+  validateJobRequest,
+  publicJob,
+  createJobQueue,
+  createServeServer,
+  servePolicy,
+  jobGeometry,
+} from './serve.js';
 export { enginePin, doctorChecks, summarizeDoctor, runDoctor, formatDoctorReport } from './doctor.js';
 export { buildJsonReport, buildBatchJsonReport } from './report.js';
 export { isGlobPattern, isUrlInput, matchGlob, expandGlob, expandInputs } from './glob.js';
@@ -42,7 +85,10 @@ export {
   fingerprintSize,
   goldenSlug,
   goldenPageName,
+  diffBands,
   FINGERPRINT_WIDTH,
+  DIFF_SCALE,
+  DIFF_GAP,
   CELL_THRESHOLD,
   DEFAULT_TOLERANCE,
 } from './golden.js';

@@ -1,0 +1,1080 @@
+{
+  "meta": {
+    "tympan": "0.7.0",
+    "engine": "1.63.0",
+    "installedEngine": "1.63.0",
+    "node": "v24.18.0",
+    "platform": "win32 x64",
+    "corpusHash": "50181de9c90324ed",
+    "corpusDocuments": 52,
+    "measuredDocuments": 52,
+    "date": "2026-10-21",
+    "layout": "section",
+    "geometry": {
+      "format": "a4",
+      "orientation": "portrait",
+      "margins": {
+        "top": 0.4,
+        "bottom": 0.4,
+        "left": 0.5,
+        "right": 0.5
+      }
+    }
+  },
+  "totals": {
+    "documents": 52,
+    "failed": 0,
+    "pages": 340,
+    "bytes": 16412887,
+    "meanFill": 0.414,
+    "underfilledPages": 329,
+    "strandedHeadings": 4,
+    "shrunkPages": 3,
+    "overflowPages": 0,
+    "lintErrors": 4,
+    "lintWarnings": 340,
+    "totalMs": 196495
+  },
+  "results": [
+    {
+      "id": "article-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 48247,
+      "ms": 1471,
+      "meanFill": 0.641,
+      "minFill": 0.641,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 1,
+        "warnings": 2,
+        "notes": 0,
+        "ok": false
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "article-medium",
+      "ok": true,
+      "pages": 3,
+      "bytes": 142806,
+      "ms": 2062,
+      "meanFill": 0.641,
+      "minFill": 0.641,
+      "underfilled": 3,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 1,
+        "warnings": 4,
+        "notes": 0,
+        "ok": false
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "article-long",
+      "ok": true,
+      "pages": 8,
+      "bytes": 379304,
+      "ms": 3831,
+      "meanFill": 0.641,
+      "minFill": 0.641,
+      "underfilled": 8,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 1,
+        "warnings": 9,
+        "notes": 0,
+        "ok": false
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "article-extreme",
+      "ok": true,
+      "pages": 20,
+      "bytes": 949315,
+      "ms": 8715,
+      "meanFill": 0.641,
+      "minFill": 0.641,
+      "underfilled": 20,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 1,
+        "warnings": 21,
+        "notes": 0,
+        "ok": false
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "report-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 51545,
+      "ms": 1151,
+      "meanFill": 0.372,
+      "minFill": 0.372,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "report-medium",
+      "ok": true,
+      "pages": 3,
+      "bytes": 153562,
+      "ms": 2060,
+      "meanFill": 0.396,
+      "minFill": 0.372,
+      "underfilled": 3,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 3,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "report-long",
+      "ok": true,
+      "pages": 8,
+      "bytes": 415797,
+      "ms": 4189,
+      "meanFill": 0.456,
+      "minFill": 0.372,
+      "underfilled": 8,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 8,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "report-extreme",
+      "ok": true,
+      "pages": 20,
+      "bytes": 1053483,
+      "ms": 9557,
+      "meanFill": 0.6,
+      "minFill": 0.372,
+      "underfilled": 14,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 14,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "invoice-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 52467,
+      "ms": 1143,
+      "meanFill": 0.422,
+      "minFill": 0.422,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "invoice-medium",
+      "ok": true,
+      "pages": 1,
+      "bytes": 53339,
+      "ms": 1144,
+      "meanFill": 0.47,
+      "minFill": 0.47,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "invoice-long",
+      "ok": true,
+      "pages": 1,
+      "bytes": 54304,
+      "ms": 1146,
+      "meanFill": 0.589,
+      "minFill": 0.589,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "invoice-extreme",
+      "ok": true,
+      "pages": 1,
+      "bytes": 54571,
+      "ms": 1169,
+      "meanFill": 0.877,
+      "minFill": 0.877,
+      "underfilled": 0,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 0,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": null
+    },
+    {
+      "id": "resume-short",
+      "ok": true,
+      "pages": 2,
+      "bytes": 81030,
+      "ms": 1427,
+      "meanFill": 0.204,
+      "minFill": 0.204,
+      "underfilled": 2,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "resume-medium",
+      "ok": true,
+      "pages": 4,
+      "bytes": 161050,
+      "ms": 2133,
+      "meanFill": 0.204,
+      "minFill": 0.204,
+      "underfilled": 4,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 4,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "resume-long",
+      "ok": true,
+      "pages": 9,
+      "bytes": 361678,
+      "ms": 4019,
+      "meanFill": 0.204,
+      "minFill": 0.204,
+      "underfilled": 9,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 9,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "resume-extreme",
+      "ok": true,
+      "pages": 21,
+      "bytes": 845203,
+      "ms": 8246,
+      "meanFill": 0.204,
+      "minFill": 0.204,
+      "underfilled": 21,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 21,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "deck-short",
+      "ok": true,
+      "pages": 3,
+      "bytes": 91288,
+      "ms": 1747,
+      "meanFill": 0.158,
+      "minFill": 0.158,
+      "underfilled": 3,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 3,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "deck-medium",
+      "ok": true,
+      "pages": 5,
+      "bytes": 151486,
+      "ms": 2382,
+      "meanFill": 0.158,
+      "minFill": 0.158,
+      "underfilled": 5,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 5,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "deck-long",
+      "ok": true,
+      "pages": 10,
+      "bytes": 302528,
+      "ms": 6809,
+      "meanFill": 0.158,
+      "minFill": 0.158,
+      "underfilled": 10,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 10,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "deck-extreme",
+      "ok": true,
+      "pages": 22,
+      "bytes": 666431,
+      "ms": 8694,
+      "meanFill": 0.158,
+      "minFill": 0.158,
+      "underfilled": 22,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 22,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "table-heavy-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 39881,
+      "ms": 1168,
+      "meanFill": 0.965,
+      "minFill": 0.965,
+      "underfilled": 0,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 0,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": null
+    },
+    {
+      "id": "table-heavy-medium",
+      "ok": true,
+      "pages": 1,
+      "bytes": 40824,
+      "ms": 1248,
+      "meanFill": 0.986,
+      "minFill": 0.986,
+      "underfilled": 0,
+      "stranded": 0,
+      "shrunk": 1,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-scaled"
+    },
+    {
+      "id": "table-heavy-long",
+      "ok": true,
+      "pages": 1,
+      "bytes": 43025,
+      "ms": 1381,
+      "meanFill": 0.986,
+      "minFill": 0.986,
+      "underfilled": 0,
+      "stranded": 0,
+      "shrunk": 1,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-scaled"
+    },
+    {
+      "id": "table-heavy-extreme",
+      "ok": true,
+      "pages": 1,
+      "bytes": 48453,
+      "ms": 1268,
+      "meanFill": 0.986,
+      "minFill": 0.986,
+      "underfilled": 0,
+      "stranded": 0,
+      "shrunk": 1,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-scaled"
+    },
+    {
+      "id": "form-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 31606,
+      "ms": 1101,
+      "meanFill": 0.183,
+      "minFill": 0.183,
+      "underfilled": 1,
+      "stranded": 1,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "form-medium",
+      "ok": true,
+      "pages": 1,
+      "bytes": 32793,
+      "ms": 1057,
+      "meanFill": 0.223,
+      "minFill": 0.223,
+      "underfilled": 1,
+      "stranded": 1,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "form-long",
+      "ok": true,
+      "pages": 1,
+      "bytes": 35487,
+      "ms": 1122,
+      "meanFill": 0.323,
+      "minFill": 0.323,
+      "underfilled": 1,
+      "stranded": 1,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "form-extreme",
+      "ok": true,
+      "pages": 1,
+      "bytes": 38332,
+      "ms": 1110,
+      "meanFill": 0.565,
+      "minFill": 0.565,
+      "underfilled": 1,
+      "stranded": 1,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "quote-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 48584,
+      "ms": 1158,
+      "meanFill": 0.48,
+      "minFill": 0.48,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "quote-medium",
+      "ok": true,
+      "pages": 1,
+      "bytes": 48584,
+      "ms": 1123,
+      "meanFill": 0.48,
+      "minFill": 0.48,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "quote-long",
+      "ok": true,
+      "pages": 1,
+      "bytes": 48576,
+      "ms": 1186,
+      "meanFill": 0.48,
+      "minFill": 0.48,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "quote-extreme",
+      "ok": true,
+      "pages": 1,
+      "bytes": 48589,
+      "ms": 1147,
+      "meanFill": 0.48,
+      "minFill": 0.48,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "newsletter-short",
+      "ok": true,
+      "pages": 3,
+      "bytes": 138623,
+      "ms": 1849,
+      "meanFill": 0.284,
+      "minFill": 0.284,
+      "underfilled": 3,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 3,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "newsletter-medium",
+      "ok": true,
+      "pages": 5,
+      "bytes": 230383,
+      "ms": 2619,
+      "meanFill": 0.284,
+      "minFill": 0.284,
+      "underfilled": 5,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 5,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "newsletter-long",
+      "ok": true,
+      "pages": 10,
+      "bytes": 460322,
+      "ms": 4834,
+      "meanFill": 0.284,
+      "minFill": 0.284,
+      "underfilled": 10,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 10,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "newsletter-extreme",
+      "ok": true,
+      "pages": 22,
+      "bytes": 1013633,
+      "ms": 9993,
+      "meanFill": 0.284,
+      "minFill": 0.284,
+      "underfilled": 22,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 22,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "rtl-short",
+      "ok": true,
+      "pages": 2,
+      "bytes": 105861,
+      "ms": 1572,
+      "meanFill": 0.334,
+      "minFill": 0.334,
+      "underfilled": 2,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "rtl-medium",
+      "ok": true,
+      "pages": 4,
+      "bytes": 210708,
+      "ms": 2409,
+      "meanFill": 0.334,
+      "minFill": 0.334,
+      "underfilled": 4,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 4,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "rtl-long",
+      "ok": true,
+      "pages": 9,
+      "bytes": 473320,
+      "ms": 5100,
+      "meanFill": 0.334,
+      "minFill": 0.334,
+      "underfilled": 9,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 9,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "rtl-extreme",
+      "ok": true,
+      "pages": 21,
+      "bytes": 1105688,
+      "ms": 10993,
+      "meanFill": 0.334,
+      "minFill": 0.334,
+      "underfilled": 21,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 21,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "cjk-short",
+      "ok": true,
+      "pages": 2,
+      "bytes": 156361,
+      "ms": 2371,
+      "meanFill": 0.296,
+      "minFill": 0.296,
+      "underfilled": 2,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 2,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "cjk-medium",
+      "ok": true,
+      "pages": 4,
+      "bytes": 311833,
+      "ms": 3972,
+      "meanFill": 0.296,
+      "minFill": 0.296,
+      "underfilled": 4,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 4,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "cjk-long",
+      "ok": true,
+      "pages": 9,
+      "bytes": 700954,
+      "ms": 7892,
+      "meanFill": 0.296,
+      "minFill": 0.296,
+      "underfilled": 9,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 9,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "cjk-extreme",
+      "ok": true,
+      "pages": 21,
+      "bytes": 1637177,
+      "ms": 18314,
+      "meanFill": 0.296,
+      "minFill": 0.296,
+      "underfilled": 21,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 21,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "dark-short",
+      "ok": true,
+      "pages": 3,
+      "bytes": 139641,
+      "ms": 2049,
+      "meanFill": 0.336,
+      "minFill": 0.336,
+      "underfilled": 3,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 3,
+        "notes": 1,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "dark-medium",
+      "ok": true,
+      "pages": 5,
+      "bytes": 232129,
+      "ms": 2792,
+      "meanFill": 0.336,
+      "minFill": 0.336,
+      "underfilled": 5,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 5,
+        "notes": 1,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "dark-long",
+      "ok": true,
+      "pages": 10,
+      "bytes": 463829,
+      "ms": 5005,
+      "meanFill": 0.336,
+      "minFill": 0.336,
+      "underfilled": 10,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 10,
+        "notes": 1,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "dark-extreme",
+      "ok": true,
+      "pages": 22,
+      "bytes": 1021354,
+      "ms": 10118,
+      "meanFill": 0.336,
+      "minFill": 0.336,
+      "underfilled": 22,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 22,
+        "notes": 1,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "hero-short",
+      "ok": true,
+      "pages": 1,
+      "bytes": 45641,
+      "ms": 1136,
+      "meanFill": 0.301,
+      "minFill": 0.301,
+      "underfilled": 1,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 1,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "hero-medium",
+      "ok": true,
+      "pages": 3,
+      "bytes": 135014,
+      "ms": 1799,
+      "meanFill": 0.301,
+      "minFill": 0.301,
+      "underfilled": 3,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 3,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "hero-long",
+      "ok": true,
+      "pages": 8,
+      "bytes": 358560,
+      "ms": 4243,
+      "meanFill": 0.301,
+      "minFill": 0.301,
+      "underfilled": 8,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 8,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    },
+    {
+      "id": "hero-extreme",
+      "ok": true,
+      "pages": 20,
+      "bytes": 897688,
+      "ms": 9643,
+      "meanFill": 0.301,
+      "minFill": 0.301,
+      "underfilled": 20,
+      "stranded": 0,
+      "shrunk": 0,
+      "overflow": 0,
+      "lint": {
+        "errors": 0,
+        "warnings": 20,
+        "notes": 0,
+        "ok": true
+      },
+      "topRule": "page-underfilled"
+    }
+  ]
+}

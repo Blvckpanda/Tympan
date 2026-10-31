@@ -4,6 +4,263 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-10-21
+
+### Added
+- **`--flow`, one print per document (W2).** Chromium paginates the whole body
+  once with injected paged-media rules (headings keep with their text,
+  `orphans`/`widows` 2, `break-inside: avoid` on figures/tables/pre/blockquotes);
+  `scale` stays 1 because the layout flows instead of shrinking. Opt-in:
+  section mode remains the default and existing output bytes do not move —
+  including the input digest (flow options hash only when flow is on).
+  Measured on the Kitch documents (fill read from the produced PDF in BOTH
+  modes, bytes/wall included; see
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md)): 03-subscription-plans prints 10
+  sheets at 64% as 8 sheets at 81% (424 KB → 132 KB, 6.6s → 2.2s); pot-counter
+  collapses 4 sparse sheets into 2 real ones. The deterministic tail is shared
+  between the producers in `finalize.js` (fixed Producer/dates, input-hash
+  `/ID`, `tympan:<hash>` keyword), so byte-identity holds in both modes.
+- **`--layout auto` — the chooser from the plan.** Every section is measured
+  first (the numbers `printSection` starts from); flow is picked only when
+  one-section-per-page would waste more sheet area than `targetFill` allows or
+  a section starts shrinking below 0.95. The result carries the pick AND the
+  arithmetic (`layoutChoice`); deck keeps running where it is already right
+  (pot-counter measures full sheets).
+- **Local sibling images survive the request gate (W1 finding).** The gate
+  blocks `file://` reads by design, which blanked `<img src="logo.png">`. Node
+  reads the file and inlines it as a data URI before detection — nothing is
+  unblocked, and an asset that does not exist stays broken and reported.
+  Bounds: image extensions only, 8 MB cap, regular files only.
+- **`--toc` — a generated Contents page with real sheet numbers.** Section
+  mode settles the numbers by arithmetic (every section prints as exactly one
+  sheet); flow mode maps every section to the sheet its heading lands on via
+  the PDF's own text layer and converges the numbering when the TOC's own
+  block shifts it (bounded at 3 passes, stability reported).
+- **Real outline destinations in flow mode.** `--outline` used to be
+  rejected in flow mode because nothing could map a section to a page; the
+  text-layer mapping writes bookmarks that point where the reader really
+  lands (monotone search, forward-falling fallback, ids ignored so they can
+  never match the wrong page).
+- **`--page-footer <text>` — a running footer via Chrome 131+ margin boxes.**
+  Static text (Blink has no string-set), printed by the engine next to the
+  `n / total` counter and extractable from the PDF; the book/contract presets
+  resolve it from the document `<title>`.
+- **`--fill balanced|tight|loose` (flow only).** balanced is native flow;
+  tight tries a BOUNDED uniform micro-scale ladder (1, 0.98, 0.97 — the
+  plan's floor) and keeps the fewest-pages winner, reported in `fillPolicy`;
+  loose extends keep-together to `li, dd, dt` and accepts gaps. Unbounded
+  shrink-to-fill remains rejected. `--layout`, `--toc`, `--page-footer` and
+  `--preset` join the HTTP API's allowed options.
+- **`--preset deck|report|book|invoice|contract`.** Documented bundles (`deck`
+  = today's deck behaviour; report = flow + page numbers; book = report + TOC
+  + title running footer + book margins; invoice = tightened side margins in
+  the section engine; contract = flow + page numbers + title footer).
+  Explicit flags win over every preset default, in the CLI and the API.
+- **Fill baselines are first-class in `tympan test`.** A baseline records each
+  page's fill (measured from the produced PDF, not the DOM) in
+  `<goldenDir>/<input>/fills.json`; a page dropping below its floor fails
+  (`FILL_TOLERANCE` 5% relative). Existing baselines adopt theirs on first
+  compare instead of failing out of the box.
+
+### Changed
+- **Merge dedup, measured honestly.** Per-section prints DO duplicate
+  resources; a content-hash collapse of byte-identical streams
+  (`dedupeIdenticalStreams` in `finalize.js`, applied to both modes) removes
+  56 objects / 6 KB on the measured deck. The full 28→5 font-program collapse
+  the plan promised CANNOT be done at the merge: subsets of the same face per
+  section print have distinct glyph sets, so name-level merging would corrupt
+  extraction — the byte win the plan measured (2.9x) is what `--flow`'s
+  single print achieves (3.2x measured).
+
+## [Unreleased]
+
+### Security
+- **`tympan ui` is gated: a per-session token on every route, a loopback Host
+  allowlist, and JSON-only POST bodies.** The local preview server used to
+  accept anything that reached the port, so a hostile web page could
+  no-preflight a `POST /convert` at it (or rebind DNS to it) and read back the
+  rendered PDF of a local file. The server now mints a per-session token
+  (24 random bytes; accept `options.token` in tests) and requires it on every
+  route — `GET /`, `GET /events`, `GET /pdf`, `POST /convert`, `POST /watch` —
+  carried in the query string because `EventSource` and the PDF `iframe`
+  cannot send custom headers (timing-safe compare). A request's `Host` must
+  resolve to `127.0.0.1`/`localhost`/`::1` on the actually-bound port, so a
+  forged `Host` (evil.example) or a DNS-rebound name is refused (403) even
+  with a valid token, and trailing-dot forms are normalized. POST bodies that
+  are not `application/json` are refused with 415 before parsing — nothing a
+  no-preflight POST can ship. The bin prints the tokenized URL; the page
+  carries its own key in its client code. Pinned by `test/hardening.test.mjs`.
+- **The release workflow cannot leak a publish credential, and its supply
+  chain is pinned.** `release.yml` upgraded to: every action pinned to a full
+  commit SHA (version noted in an adjacent comment, so an audit reads the
+  intent), the trusted-publishing npm upgrade pinned to an exact version
+  (`npm@11.21.1`, above the 11.5.1 OIDC floor) instead of an unpinned
+  `@latest`, and the GitHub Release split into its own job WITHOUT
+  `id-token: write` — a compromised release action can now create a release
+  but cannot mint an npm publish credential. The publish job holds
+  `id-token: write` and nothing else; the tarball travels to the release as
+  an artifact, so pack and release cannot drift.
+
+### Fixed
+- **Every page was silently scaled to 0.902, and the cause was our own
+  measurement.** `resolveGeometry()` laid the document out at 774px (a constant)
+  while A4 minus the default side margins is a 698px column, and
+  `measureBlockInPage()` took `documentElement.scrollWidth` — which can never be
+  smaller than the viewport tympan itself created. So a 700px document measured
+  774px and Chromium scaled every page to fit, rendering type 10% smaller than
+  authored. Geometry now carries `columnW` (the printable column) and `loadW`
+  (the width the source is rendered at while measuring), `contentW` is clamped
+  to `columnW`, and the width is measured on the content box. New
+  `--content-width <px>` (also `contentWidth` in the API and `serve` options)
+  can narrow the measure; nothing can widen it past the paper. Measured on the
+  Kitch deliverables: width scale 0.902 → 1.000, mean fill +12.5%, +15.3% and
+  +19.0% on the three documents, page counts unchanged —
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md), "Real deliverables".
+- **A document's own print CSS ran at print time, while `tympan lint` said it
+  was ignored.** The clean template copied the source's first `<style>` verbatim,
+  so `@media print` rules applied; a fixture with a print-only
+  `min-height: 2000px` failed with `SPILL PAGES` even after six shrink retries.
+  `buildCleanTemplate()` now reads the source's styles through the CSSOM and
+  drops `@page` rules and print-only media blocks (keeping the non-print queries
+  of a mixed list), and copies every head `<style>` in document order instead of
+  only the first. Pinned by `test/layout-width.test.mjs`.
+- **`--json` dropped the flow facts the result carries.** `layoutChoice`,
+  `fillPolicy`, `toc`, `outline` and `pageFooter` were set on the result (and
+  declared in the types) but never serialized, so `--layout auto` could not
+  state WHY it picked a mode — the plan's own gate — and `--fill tight`'s
+  ladder was invisible to CI. All five now travel in the report (null in
+  section mode or when the switch is off, so "switch off" and "field missing"
+  stay distinguishable); pinned in `test/phase1.test.mjs`.
+- **A flow-mode page was judged by the section-mode target.** `underfilled`
+  was computed for every page record against `--target-fill` (70%), so a flow
+  document reported phantom page numbers in `underfilledPages` even though flow
+  pages are filled by Chromium, not by one-section-per-sheet arithmetic. Flow
+  records now carry `underfilled: null` (the tri-state mirrors
+  `keptTogether`'s "unjudged in this mode") and the rollup's
+  `underfilledPages` stays empty; section mode keeps the boolean and every
+  number it ever reported. Every caller that knows the mode passes it
+  explicitly — the pipeline's flow branch and `tympan lint`'s records — while
+  the inference fallback stays for callers who genuinely don't. Type:
+  `underfilled: boolean | null`. Sparse flow pages are still reported, by the
+  flow-specific `flow-near-empty` rule with its own 10% floor.
+- **A request with a malformed Host header crashed the whole `tympan serve`
+  process.** `new URL(...)` outside the parse guard threw before the handler
+  ran, so one malformed request (a hostile scan or a broken client) took the
+  server — and every queued job — down with it. Host and request-target
+  parsing are now inside the guarded path and answer 400; the process
+  survives and keeps answering. Pinned by `test/hardening.test.mjs`.
+- **Two competing configurations could print the same input digest.** The
+  flow-options line in `hashInput()` sat INSIDE the block comment above it,
+  so `--flow`, `--page-numbers` and the fill presets never reached the
+  deterministic-input hash and the PDF's `tympan:<hash>` keyword was the same
+  for outputs that differed. The line lives outside the comment now (with a
+  note saying it must stay there), flow options still hash only when flow is
+  on so section-mode bytes do not move, and every option that can change
+  output bytes is hashed. Pinned by `test/cache-key.test.mjs`.
+- **A malformed %-sequence in a preview sheet name crashed the server.**
+  `decodeURIComponent` on the request path was unguarded, so one bad request
+  answered with an unhandled rejection instead of a status. It is now
+  guarded and the malformed name answers 400 (`src/preview.js`).
+- **A null `--target-fill` silently disabled lint's underfilled rule.**
+  `Number(null)` is 0 and finite, so a null target slipped past the default
+  as "target 0" and nothing was ever flagged underfilled. An explicit 0 still
+  turns the rule off — the documented behavior for a deliberately sparse
+  deck — and only an explicit one does. Pinned by `test/hardening.test.mjs`.
+
+### Added
+- **`tympan serve` — the hosted slice, as a spike with production-shaped seams.**
+  An HTTP API over the same converter: per-tenant API keys (timing-safe compare,
+  empty key store = no access), a bounded FIFO queue with a worker pool and a
+  per-tenant ceiling, TTL retention with early `DELETE`, request size caps, and
+  `/healthz` for a load balancer. Two decisions make it an API rather than an
+  SSRF proxy, both pinned by tests: a caller sends `html` or `url` and **never a
+  server path**, and `offline`/`allowNet` are the SERVER's policy, dropped from
+  any submitted job. A job that converts but fails verification is reported
+  failed. `Dockerfile` is based on the Playwright image at the exact pinned
+  engine version; [docs/SERVE.md](docs/SERVE.md) states plainly what is real and
+  what a paid tier still needs ([src/serve.js](src/serve.js)).
+- **A corpus benchmark, with published numbers.** `scripts/corpus/generate.mjs`
+  builds 52 documents from 13 archetypes (article, report, invoice, résumé,
+  deck, wide-table ledger, form, quote, newsletter, RTL, CJK, dark theme,
+  viewport-sized hero) deterministically; `scripts/corpus.mjs` measures every one
+  and writes [docs/BENCHMARKS.md](docs/BENCHMARKS.md) plus
+  [docs/benchmarks.json](docs/benchmarks.json) — page count, mean/minimum fill,
+  size, render time and lint findings per document, with the engine pin, corpus
+  hash and platform, and a `--compare` mode for drift between releases. The
+  current run: 52 documents, 340 pages, 15.7 MB, mean page fill 41%, 97% of
+  pages under the 70% target, 0 pages wider than the column, median 2.0s per
+  document (38% mean fill before the layout-width fix, with the same page
+  count). A test fails if the committed numbers stop matching the generator,
+  and a checked-in appendix keeps the hand-measured real deliverables in the
+  published file across regenerations.
+- **`tympan lint` — diagnostics that name the page, not the average.** Converts
+  with the same flags and rules over the measurements the pipeline already
+  takes: per-page fill, stranded headings, split keep-together blocks, images
+  that never loaded (`broken-asset`, an error), blocked requests with their
+  reason, the source document's own print CSS (read through the CSSOM), and
+  fixed-position or viewport-sized blocks. `--strict` promotes warnings to
+  failures; `--target-fill` moves the line (0 disables it, for a deliberately
+  sparse deck); `--json` prints findings. It never rasterizes — every finding
+  comes from a DOM measurement or a computed geometry value — and a sparse page
+  is a finding, not a defect, because covers and full-bleed figures are meant to
+  be sparse. Library: `lintDocument`, `summarizeLint`, `lintExitCode`,
+  `formatLintReport`, `failureReport` ([src/lint.js](src/lint.js)).
+- **`column-narrower-than-layout`, plus the note that replaces it.** The rule
+  names the defect it was written for — a layout wider than the column, so
+  Chromium scales every page (measured at 0.902 on our own deliverables) — and
+  now acts as an invariant check, because geometry resolution caps the layout at
+  the column. The cap itself is reported once per document as
+  `content-width-clamped`, with the wider-measure remedies named.
+- **`tympan test --diff` — a side-by-side review image per differing page.**
+  Three panels at the comparison's own grid (baseline | current | current with
+  the differing cells marked), magnified with nearest-neighbour scaling so one
+  visible block is one compared cell. Written to `<golden>/diff/<input>/pNNN.png`
+  (library: `diff`/`diffDir`), and the report says where on the sheet the change
+  is (`diffBands`: "change is 12-38% down the sheet") — which separates a
+  whole-page reflow from one moved block. A review image is never a reason to
+  fail: if composing one fails, the comparison result stands.
+- **The source audit travels with the result.** `convert()` now returns
+  `audit` (print CSS counts, fixed/viewport-sized blocks, images that failed to
+  load per page, blocked requests with reasons) and `--json` serializes it, so CI
+  can gate on a lost image without a second run of the pipeline.
+
+### Added
+- **`tympan preview` — see where the cut will fall, before converting.** Serves
+  a local page (127.0.0.1 only, no dependencies) with one paper-sized sheet per
+  detected section: the section rendered at the print column width and scaled by
+  the factor the printer will apply, the usable text area drawn to scale, a line
+  where the content will stop, corner tags for the fill percentage and shrink
+  factor, a badge when a sheet ends on its own heading, and the lint findings in
+  the sidebar. The file is polled: save it and the page re-measures. The
+  measurement runs the printer's own clean template, waits and
+  `measureBlockInPage` — not a parallel implementation — and a test pins the
+  agreement (preview fill vs converted fill, every page). Library:
+  `buildPreviewReport`, `createPreviewServer`, `previewPage`, `sheetSizePx`
+  ([src/preview.js](src/preview.js)). CLI: `tympan preview <input> [--port n]`,
+  with every convert flag (geometry, margins, orientation, selector, offline)
+  applying so the preview matches the conversion you are about to run.
+- **Shared measurement module** ([src/measure.js](src/measure.js)): the in-page
+  block measurement (height, real content width, last block kind, failed images)
+  moved out of `printSection`, so the printer and the preview measure with one
+  function instead of two copies of the same scan.
+
+### Changed
+- **A shrink is now attributed.** `scaleApplied` said a page shrank, but not
+  why, so one document-wide width mismatch read as nine per-page warnings on the
+  Kitch deck. Page records gain `widthScale` and `scaledFor` (`height` | `width`
+  | `none`); `quality.shrunkPages` counts height-bound shrinks only, and the new
+  `quality.overflowPages` carries the width-bound ones. The CLI quality line
+  follows ("2 page(s) shrunk to fit; 7 page(s) wider than the column").
+
+### Fixed
+- **`--format letter` printed into an A4-shaped box.** `resolveGeometry`
+  hard-coded the inches (8.27×11.69) for every format, so a letter document was
+  laid out by Chromium on an A4 page and then merged onto a 612×792pt letter
+  sheet — an inconsistency that survived because the two ratios are nearly
+  identical. Inches are now derived from the chosen format's points (72/inch):
+  letter is 8.5×11in, A4 is unchanged (8.27×11.69in), so the default path's
+  output bytes do not move. Found by the preview's sheet-size test.
+
 ## [0.7.0] - 2026-10-15
 
 ### Added

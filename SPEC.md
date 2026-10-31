@@ -145,8 +145,25 @@ the letter of the spec, the deviation and its reason are recorded here.
 - Deterministic waits, security defaults, fixed timestamps/IDs, and the
   corpus + flake-test exit criteria land on the v0.5/v0.6 roadmap, not
   retrofitted silently.
-- `lint` / `test` / `doctor` stay out of v1's CLI surface (Phase 2+); v1 is
-  convert + flags + `tympan ui`.
+- `test` / `doctor` were held out of v1's CLI surface and then landed early
+  (v0.6/v0.7) because the spec's own Phase 1 diagnostics list demands them:
+  "console errors, failed requests, missing fonts, overflow warnings, `--strict`,
+  JSON output, meaningful exit codes, `doctor` command". `tympan lint` (built
+  2026-10-16) is that list's diagnostics half — failed requests, overflow
+  warnings, `--strict`, JSON — and **not** the Phase 2 half of §4's `lint` item,
+  which is accessibility and tagged-PDF validation and stays unbuilt.
+- `tympan preview` (Phase 1 sketch, §5) shipped 2026-10-16: one paper-sized
+  sheet per section with the text area, the shrink factor and the fill line
+  drawn, measured by the printer's own code path (a test pins that the preview
+  and the converter agree page for page).
+- `tympan serve` (Phase 4 sketch, §5) exists as a spike with per-tenant keys, a
+  bounded queue and a Dockerfile — deliberately NOT a hosted product: keys live
+  in an environment variable, the queue is memory, and there is no metering.
+  [docs/SERVE.md](docs/SERVE.md) lists what a paid tier still needs. The §6
+  quality-bar items this makes measurable — published per-release numbers on a
+  corpus — are now real: `scripts/corpus.mjs` writes
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md). §6's "200+ real documents" remains
+  unmet: the corpus is 52 *generated* documents, and the report says so.
 
 **Deviations**
 

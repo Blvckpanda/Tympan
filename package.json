@@ -1,6 +1,6 @@
 {
   "name": "tympan",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Deterministic, secure, fast HTML→PDF converter: one semantic section per page, runtime print-CSS defeated, self-verifying output. Zero config.",
   "type": "module",
   "license": "MIT",
@@ -35,6 +35,8 @@
   },
   "scripts": {
     "test": "node --test",
+    "corpus": "node scripts/corpus.mjs",
+    "serve": "node bin/tympan.js serve",
     "smoke": "node scripts/smoke.mjs",
     "smoke:real": "node scripts/smoke-real.mjs",
     "ui": "node bin/tympan-ui.js"

@@ -36,7 +36,9 @@ function getPdfjs() {
     }
   }
   return pdfjs;
-}/**
+}
+
+/**
  * Extract the text of every page (1-based order). Whitespace is collapsed:
  * pdfjs splits words into separate text items and Chromium letter-spacing
  * widens the gaps, so multi-word matching must stay whitespace-flexible
