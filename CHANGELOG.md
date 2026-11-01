@@ -74,6 +74,22 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **`tympan lint --a11y` — the accessibility half of lint (SPEC §4's Phase 2
+  item).** Opt-in: the audit costs a second body walk on the load visit, so
+  it reads `auditA11y` on the conversion options and runs only when asked.
+  Findings from `src/a11y.js` (unit-testable pure rules + one in-page
+  collector): `a11y-html-lang` (WCAG 3.1.1), `a11y-img-alt` (1.1.1 — a
+  missing attribute; `alt=""` stays correct for decorative),
+  `a11y-form-label` (4.1.2), `a11y-contrast` (1.4.3 — the text color
+  composited with alpha over its nearest opaque ancestor background, 4.5:1
+  floor, 3:1 for large type), `a11y-heading-order` (1.3.1), plus notes for
+  zero-or-several h1, no headings, generic link text ("click here" with no
+  aria-label) and headerless data tables. All warnings/notes — they never
+  fail a run by default; `--strict` promotes them like lint's own. The
+  rules run on the SAME source audit trip and carry capped lists with real
+  totals, so a 400-image document cannot flood a log.
+
 ### Security
 - **`tympan ui` is gated: a per-session token on every route, a loopback Host
   allowlist, and JSON-only POST bodies.** The local preview server used to

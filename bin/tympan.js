@@ -20,7 +20,7 @@ const USAGE = `Usage: tympan <input...> [options]
        tympan doctor [--json]
        tympan serve [--port <n>]
        tympan preview <input> [--port <n>]
-       tympan lint <input...> [--strict] [--json]
+       tympan lint <input...> [--strict] [--json] [--a11y]
        tympan test <input...> [--update] [--golden <dir>] [--json]
 
 Inputs are file paths, http(s) URLs, quoted glob patterns ("docs/*.html",
@@ -111,6 +111,10 @@ tympan lint (diagnostics - why does this PDF look wrong?):
   flow-stranded-heading, a heading left alone when its body flowed to
   the next sheet — instead of the per-page fill and heading checks above,
   which only fit pages a section owns entirely.
+  --a11y               Run the accessibility rules on the source: missing
+  lang, images with no alt, unnamed form controls, text under the WCAG
+  1.4.3 contrast floor, torn heading outlines, headerless tables, link
+  text that names nothing (warnings and notes; --strict promotes them)
   --strict             Treat warnings and notes as failures too
   --target-fill <f>    Fill below this fraction is flagged (default 0.7; 0 disables)
   -o, --out <dir>      Keep the generated PDFs here for review
@@ -170,6 +174,7 @@ const SPEC = {
     '--flow',
     '--page-numbers',
     '--toc',
+    '--a11y',
     '-h',
     '--help',
   ],
@@ -238,6 +243,8 @@ function convertOptions() {
     flow: args.has('--flow'),
     pageNumbers: args.has('--page-numbers'),
     toc: args.has('--toc'),
+    // lint's accessibility half: gathered on the load visit when on.
+    auditA11y: args.has('--a11y'),
   };
   // A preset sets documented defaults; explicit flags always win over them.
   // Applied FIRST so later reads of opts read the folded values.
@@ -581,6 +588,10 @@ if (positionals[0] === 'lint') {
       layoutWidthPx: r.contentMaxWidth,
       requestedLayoutWidthPx: r.contentWidthRequested,
       audit: r.audit,
+      // --a11y rides the SAME convertMany call (the audit is gathered on
+      // the load visit pipeline already makes); the finding joins the
+      // report when the result carries the audit.
+      a11y: r.a11y ?? null,
       targetFill: opts.targetFill,
     });
   });

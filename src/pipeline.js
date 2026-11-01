@@ -40,6 +40,7 @@ import { detectSectionsInPage, capturePreludeInPage, withPrelude } from './detec
 import { verifyOutputs } from './verify.js';
 import { judgePage, summarizeQuality } from './metrics.js';
 import { auditSourceInPage } from './lint.js';
+import { auditAccessibilityInPage } from './a11y.js';
 import { measureBlockInPage } from './measure.js';
 import { chooseLayout } from './auto.js';
 import { downscaleImagesInPage, mergeFooter } from './email.js';
@@ -130,6 +131,10 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
   // document's own print CSS, fixed/viewport-sized blocks and images that
   // failed to load. `tympan lint` explains these; nothing here changes output.
   const audit = await page.evaluate(auditSourceInPage);
+  // The accessibility audit (SPEC §4 Phase 2's lint half) costs a second
+  // body walk with per-element computed styles, so it runs only when lint
+  // asks for it: `tympan lint --a11y`. Nothing here changes output either.
+  const a11y = opts.auditA11y ? await page.evaluate(auditAccessibilityInPage) : null;
   const footerHtml = await page.evaluate(() => {
     // Trailing band that becomes part of the last page. Ordered: deck-style
     // centered block, semantic <footer>, landing-style trailing .footer div
@@ -151,6 +156,7 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
     contentWidthRequested: Math.round(requestedWidth),
     docTitle,
     audit,
+    a11y,
     inlinedAssets,
     blocked: gate.blocked(),
   };
@@ -673,6 +679,7 @@ export async function convert(inputPath, raw = {}) {
         contentWidthRequested,
         docTitle,
         audit,
+        a11y,
         inlinedAssets,
       } = await loadAndExtract(browser, inputPath, options.selector, {
           loadW: geo.loadW,
@@ -684,6 +691,7 @@ export async function convert(inputPath, raw = {}) {
           contentMaxWidth: options.contentWidth ?? options.contentMaxWidth,
           waitFor: options.waitFor,
           waitTimeout: options.waitTimeout,
+          auditA11y: !!options.auditA11y,
           ...secOpts,
         });
       if (onProgress) onProgress('detected', detection);
@@ -890,9 +898,10 @@ export async function convert(inputPath, raw = {}) {
           geometry: geo,
           background,
           blockedRequests: blockedCount,
-          layout: 'flow',
+        layout: 'flow',
           layoutChoice,
           assetInlining: inlinedAssets,
+          a11y,
           pageNumbers: !!options.pageNumbers,
           pageFooter: runningFooter || null,
           toc: tocInfo,
@@ -976,6 +985,7 @@ export async function convert(inputPath, raw = {}) {
         layout: 'section',
         layoutChoice,
         assetInlining: inlinedAssets,
+        a11y,
         pageFooter: options.pageFooter || (options.footerFromTitle && docTitle ? docTitle : null),
         toc: options.toc
           ? {

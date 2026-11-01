@@ -20,6 +20,8 @@
  * set is unit-tested without Chromium.
  */
 
+import { a11yFindings } from './a11y.js';
+
 /** Severity ranking; higher wins when a report is summarized. */
 export const SEVERITY_RANK = { error: 3, warning: 2, note: 1 };
 
@@ -386,6 +388,10 @@ function layoutHazards(ctx) {
  *                                  column cap)
  *   audit?: object                 source audit (printCss, brokenImages,
  *                                  blockedRequests, fixedElements, viewportClamps)
+ *   a11y?: object|null             accessibility audit (src/a11y.js). Present
+ *                                  only when the caller asked for it
+ *                                  (`tympan lint --a11y`); null means no
+ *                                  a11y rules, undefined never runs them
  *   targetFill?: number            fill threshold for page-underfilled
  *   layout?: 'section'|'flow'      the output's print mode. Flow pages are
  *                                  judged by the flow rules (flow-near-empty,
@@ -396,7 +402,14 @@ function layoutHazards(ctx) {
  *   errors: number, warnings: number, notes: number, quality: object|null}}
  */
 export function lintDocument(ctx = {}) {
-  const findings = [...pageFindings(ctx), ...assetFindings(ctx), ...layoutHazards(ctx)];
+  const findings = [
+    ...pageFindings(ctx),
+    ...assetFindings(ctx),
+    ...layoutHazards(ctx),
+    // The a11y rules fire on the audit, not on pages — a null or missing
+    // audit runs none of them and the default report does not change shape.
+    ...(ctx.a11y ? a11yFindings(ctx.a11y) : []),
+  ];
   const count = (sev) => findings.filter((f) => f.severity === sev).length;
   const errors = count('error');
   return {

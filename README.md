@@ -262,6 +262,7 @@ tympan lint brief.html                 # findings + a fill line, exit 0 unless a
 tympan lint brief.html --strict        # warnings become failures (CI gate)
 tympan lint deck.html --target-fill 0  # a deliberately sparse full-bleed deck: no fill findings
 tympan lint "docs/*.html" --json       # machine-readable findings
+tympan lint brief.html --a11y          # + the accessibility rules on the source (below)
 ```
 
 ```
@@ -290,6 +291,21 @@ The rules, and why each one exists:
 | `fixed-position`, `viewport-clamp` | warning | Blocks that print once, or are taller than the sheet |
 | `inconsistent-scale` | warning | Pages disagree on type size by more than 5% |
 | `print-css-in-source` | note | The document carries its own print CSS. `@media print` and `@page` rules are stripped at the CSSOM before printing, so they cannot fragment the page (proved by a fixture that used to spill) |
+
+**`--a11y` — the accessibility rules** (SPEC §4's Phase 2 lint half, on the
+source, opt-in because they add a second body walk):
+
+| Rule | Severity | What it means |
+|---|---|---|
+| `a11y-html-lang` | warning | No lang on `<html>` — screen readers cannot pick a voice (WCAG 3.1.1) |
+| `a11y-img-alt` | warning | Images with no alt attribute at all (`alt=""` is fine for decorative — missing is not) |
+| `a11y-form-label` | warning | Form controls with no label, aria-label or title (WCAG 4.1.2) |
+| `a11y-contrast` | warning | Text under the WCAG 1.4.3 floor (4.5:1, or 3:1 for large type), measured with alpha compositing over the nearest opaque ancestor background |
+| `a11y-heading-order` | note | A heading outline with a hole (h1 then h3) |
+| `a11y-heading-count` | note | Zero or several h1 elements |
+| `a11y-no-headings` | note | No headings at all — PDF navigation rides on them |
+| `a11y-generic-link` | note | Link text that names nothing ("click here") with no aria-label instead |
+| `a11y-table-headers` | note | Data tables with no header row |
 
 Two design choices worth stating. **Errors are things that are wrong** (a lost
 image, no output); a sparse page is a *finding*, because covers, statement bands
