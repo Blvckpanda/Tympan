@@ -315,6 +315,38 @@ measurement or a computed geometry value, so it is cheap, deterministic, and
 immune to the trap that a painted background makes any coverage metric read as
 100% full.
 
+## Size: `tympan bytes`
+
+A conversion that weighs 400 KB deserves to say why — and a size-reduction
+claim deserves a baseline (SPEC §4 makes "measured size reduction vs baseline"
+Phase 2's exit criterion; optimization before measurement is guessing).
+`tympan bytes` converts with the same flags and audits the PRODUCED PDF, so
+the same document in two modes is directly comparable:
+
+```bash
+tympan bytes brief.html          # where the bytes are, in one report
+tympan bytes deck.html --flow    # compare: the same deck printed once
+tympan bytes "docs/*.html"       # one report per input, one warm browser
+tympan bytes brief.html --json   # machine-readable (every object listed)
+```
+
+```
+[bytes] article-medium.html — 80.2 KB, 3 pages (section mode)
+     font        66.0 KB (82%)  4 object(s); largest #13 29.0 KB
+     content      4.0 KB ( 5%)  25 object(s); largest #15 0.9 KB
+     structure    6.7 KB ( 8%)  27 object(s)  (xref, dicts, trailer)
+tympan bytes: 1 document(s), 80.2 KB total
+```
+
+Buckets: **images**, **fonts** (embedded programs — per-section glyph subsets
+can reach a high share on prose; printing once with `--flow` is the fix that
+v0.8 measured at 3.2x), **content** (the paint list), **forms** (pattern and
+shading resources), **metadata**, **other**, and **structure** (xref,
+dictionaries, trailer — every scanned byte ties out). It never decompresses:
+sizes are the bytes each object occupies on disk, which is exactly what an
+optimization shrinks. It names the share and the largest objects — it does not
+judge; a photo deck spending 90% on images is a photo deck.
+
 ## Live preview: `tympan preview`
 
 Printing is the only way to be *certain* about a page break — the printer closes

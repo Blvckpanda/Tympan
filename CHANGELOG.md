@@ -75,6 +75,18 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **`tympan bytes` — the size instrument SPEC §4 Phase 2 hangs on.** Converts
+  with the same flags (one warm browser, batches and globs included) and
+  audits the PRODUCED PDF's bytes: images, embedded font programs, content
+  streams (the paint list), forms/shadings, metadata, other, and structure
+  (xref, dicts, trailer) — each bucket with its byte share and its largest
+  object, images carrying their /Width x /Height. Pure scanner (`src/bytes.js`,
+  zero-dep, per-object positional so binary stream data is never re-parsed),
+  `--json` shape matches lint's. No decompression, no judging: the shares are
+  what an optimization call must cite — Phase 2's exit criterion is a measured
+  size reduction vs baseline, and this is the baseline instrument (first
+  measured call: article-medium 80.2 KB → 82% fonts, the glyph-subset story
+  `--flow` already wins 3.2x on).
 - **`tympan lint --a11y` — the accessibility half of lint (SPEC §4's Phase 2
   item).** Opt-in: the audit costs a second body walk on the load visit, so
   it reads `auditA11y` on the conversion options and runs only when asked.

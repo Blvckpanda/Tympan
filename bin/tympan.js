@@ -21,6 +21,7 @@ const USAGE = `Usage: tympan <input...> [options]
        tympan serve [--port <n>]
        tympan preview <input> [--port <n>]
        tympan lint <input...> [--strict] [--json] [--a11y]
+       tympan bytes <input...> [--json]
        tympan test <input...> [--update] [--golden <dir>] [--json]
 
 Inputs are file paths, http(s) URLs, quoted glob patterns ("docs/*.html",
@@ -119,6 +120,15 @@ tympan lint (diagnostics - why does this PDF look wrong?):
   --target-fill <f>    Fill below this fraction is flagged (default 0.7; 0 disables)
   -o, --out <dir>      Keep the generated PDFs here for review
   --json               Machine-readable findings on stdout
+
+tympan bytes (where the size is — why does this PDF weigh what it weighs?):
+  Converts with the same flags and audits the PRODUCED PDF's bytes: images
+  vs embedded font programs vs content streams (the paint list) vs forms
+  versus metadata versus structure (xref, dicts, trailer). No judging, no
+  decompressing — the share and the largest objects are named so an
+  optimization call (SPEC Phase 2's size item) is a measurement, not a
+  guess. Convert options apply (--preset, --flow, --format, ...).
+  --json               Machine-readable audits on stdout
 
 tympan test (pixel-golden regression — did the pages still look the same?):
   --golden <dir>       Baseline directory (default .tympan/golden)
@@ -602,6 +612,51 @@ if (positionals[0] === 'lint') {
     console.error(formatLintReport(reports, { qualityLine: formatQualityLine }));
   }
   process.exit(lintExitCode(reports, { strict: args.has('--strict') }));
+}
+
+// ------------------------------------------------------- bytes (size audit)
+if (positionals[0] === 'bytes') {
+  const { auditPdfBytes, formatBytesReport } = await import('../src/bytes.js');
+  const resolved = await resolveInputs(positionals.slice(1));
+  const opts = convertOptions();
+  // bytes' report IS the output; per-section progress would bury it.
+  delete opts.onProgress;
+  const keepDir = args.value('--out') ?? args.value('-o');
+  if (keepDir === '-') usageError('tympan bytes does not write to stdout');
+  const pdfDir = keepDir ? path.resolve(keepDir) : fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-bytes-'));
+  if (keepDir) fs.mkdirSync(pdfDir, { recursive: true });
+  else scratch.push(pdfDir);
+  // The audit must not spin verification twice: the PDF is measured, not
+  // asserted. Everything else (flags, presets, --flow) is a conversion.
+  const batch = await convertMany(resolved.inputs, {
+    ...opts,
+    verify: false,
+    perInput: (input) => ({ out: path.join(pdfDir, path.basename(resolveOutputs(input, {}).master)) }),
+  });
+  const scale = (n) => `${(n / 1024).toFixed(1)} KB`;
+  const reports = batch.entries.map((entry) => {
+    const label = entry.input === resolved.stdinPath ? '-' : entry.input;
+    if (!entry.ok || !entry.result) return { input: label, ok: false, error: entry.error || 'conversion failed' };
+    const pdf = fs.readFileSync(entry.result.master);
+    const audit = auditPdfBytes(pdf);
+    return {
+      input: label,
+      ok: true,
+      totalBytes: audit.totalBytes,
+      pages: Array.isArray(entry.result.pages) ? entry.result.pages.length : null,
+      mode: entry.result.layout ?? null,
+      audit,
+    };
+  });
+  if (keepDir) console.error(`tympan bytes: kept the converted PDFs in ${pdfDir}`);
+  if (args.has('--json')) {
+    await writeStdout(JSON.stringify({ count: reports.length, reports }, null, 2) + '\n');
+  } else {
+    console.error(formatBytesReport(reports));
+  }
+  // A failed conversion is the audit's only failure: the report names it,
+  // the run says so, nothing else carries judgement (visibility, like lint).
+  process.exit(reports.some((r) => !r.ok) ? 1 : 0);
 }
 
 // ------------------------------------------------------- test (goldens)

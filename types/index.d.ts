@@ -431,6 +431,66 @@ export declare function formatLintReport(
   reports: LintReport[],
   opts?: { qualityLine?: (q: QualitySummary) => string }
 ): string;
+
+/** Because the audit is opt-in, not always present. */
+export interface A11yAudit {
+  lang: string | null;
+  h1Count: number;
+  headingTotal: number;
+  headingSkips: { from: string; to: string }[];
+  imageTotal: number;
+  missingAltCount: number;
+  missingAlt: { src: string }[];
+  controlTotal: number;
+  unlabeledCount: number;
+  unlabeled: string[];
+  linkTotal: number;
+  genericCount: number;
+  genericLinks: { text: string }[];
+  tableTotal: number;
+  headerlessCount: number;
+  headerlessTables: string[];
+  lowContrastCount: number;
+  lowestContrast: { describe: string; ratio: number; large: boolean } | null;
+  lowContrast: { el: string; ratio: number; large: boolean }[];
+}
+
+/** One scanned PDF stream with its buckets, for `tympan bytes`. */
+export interface ByteKindRollup {
+  bytes: number;
+  objects: number;
+  largest: { num: number; kind: string; bytes: number; width: number | null; height: number | null; declaredBytes: number | null } | null;
+  examples: Array<{ num: number; kind: string; bytes: number; width: number | null; height: number | null; declaredBytes: number | null }>;
+}
+
+/** Where in the produced PDF the bytes went (pure; no decompression). */
+export interface ByteAudit {
+  totalBytes: number;
+  byKind: Record<string, ByteKindRollup>;
+  structureBytes: number;
+  structureObjects: number;
+  streams: Array<{ num: number; kind: string; bytes: number; width: number | null; height: number | null; declaredBytes: number | null }>;
+  pageCount: number | null;
+  objectCount: number;
+}
+
+export declare const BYTE_KINDS: string[];
+export declare function classifyStream(dict: string): string;
+/** Audit the produced PDF's bytes from a Buffer (pure, zero-dep). */
+export declare function auditPdfBytes(buf: Buffer | Uint8Array): ByteAudit;
+/** Human-readable size audit (pure). */
+export declare function formatBytesReport(
+  reports: Array<{
+    input: string | null;
+    ok: boolean;
+    error?: string;
+    totalBytes?: number;
+    pages?: number | null;
+    mode?: string | null;
+    audit?: ByteAudit;
+  }>,
+  opts?: { kbLine?: (n: number) => string }
+): string;
 /** One section measured for the page it would be printed on, without printing. */
 export interface SectionMeasurement {
   id: string;

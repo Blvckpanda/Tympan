@@ -28,6 +28,7 @@ export {
 } from './pipeline.js';
 export { detectSectionsInPage, capturePreludeInPage, withPrelude, describeDetection } from './detect.js';
 export { auditAccessibilityInPage, a11yFindings, CONTRAST_NORMAL, CONTRAST_LARGE } from './a11y.js';
+export { auditPdfBytes, classifyStream, formatBytesReport, BYTE_KINDS } from './bytes.js';
 export { findChromium, launchOptions } from './browser.js';
 export { downscaleImagesInPage, mergeFooter } from './email.js';
 export { verifyOutputs, extractPages, probeRegex } from './verify.js';
