@@ -268,6 +268,100 @@ export function buildCleanTemplate({ maxWidthPx, background }) {
   doc.head.appendChild(reset);
 
   return '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+}/**
+ * In-page helper, serialized into page.evaluate by pipeline.js (printSection,
+ * measureSections) and flow.js (printFlow).
+ *
+ * Screen-styled "cover" blocks (`min-height:100vh`) cannot be shrunk onto a
+ * sheet: Chromium re-resolves `vh` against the print layout viewport, whose
+ * CSS height is paper/scale — so every scale-down raises the very height it
+ * is trying to fit. The shrink loop can loop forever (proved 2026-11-02 with
+ * a Harbor-Gardens-style cover: SPILL PAGES after all six retries at 0.55
+ * with 608px of content). The fix is dimensional, not iterative: before the
+ * measurement and the print, rewrite every declared-viewport-sized block to
+ * the sheet's own text-area height in CSS px — an absolute value the print
+ * pass can no longer re-inflate — so a 100vh hero fills the sheet it prints
+ * on.
+ *
+ * Detection reads the DECLARED value from the CSSOM, not computed styles:
+ * getComputedStyle resolves `100vh` to used px (`1000px`), which cannot be
+ * told apart from a legitimately tall section, and the used-px rewrite of an
+ * ordinary min-height would be arbitrary. A stylesheet rule that declares a
+ * vh unit on height/min-height is unambiguous author intent to size against
+ * the viewport; matching elements against those selectors, with the same laid
+ * out-height floor the `viewport-clamp` lint finding uses (0.95 of the load
+ * viewport), is the deterministic signal.
+ *
+ * @param {{targetPx?: number}} spec the sheet's text-area height in CSS px
+ * @returns {{clamped: number, samples: string[]}} count + first descriptors,
+ *   carried on the judged page record (never silent, never a guess)
+ */
+export function clampViewportSizedBlocksInPage(spec) {
+  const target = spec && spec.targetPx;
+  const vh = window.innerHeight || 0;
+  const out = { clamped: 0, samples: [] };
+  if (!target || !vh) return out;
+  // Declared viewport sizing, as selectors: rules whose height/min-height
+  // literally name a vh unit. Nested at-rules walk too (media/supports/layer)
+  // — AI bundles put their sizes inside @media (min-width ...) blocks.
+  const vhHeight = new Set();
+  const vhMinHeight = new Set();
+  const collect = (rules, depth) => {
+    if (!rules || depth > 8) return;
+    for (const rule of Array.from(rules)) {
+      if (rule.type === 1) {
+        if (/vh/.test(rule.style.height || '')) vhHeight.add(rule.selectorText);
+        if (/vh/.test(rule.style.minHeight || '')) vhMinHeight.add(rule.selectorText);
+      } else if (rule.type === 4 || rule.type === 7 || rule.type === 12) {
+        try {
+          collect(rule.cssRules, depth + 1);
+        } catch (e) {
+          // an unreadable nested sheet: skip the branch, not the run
+        }
+      }
+    }
+  };
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules = null;
+    try {
+      rules = sheet.cssRules;
+    } catch (e) {
+      continue; // cross-origin stylesheet: nothing to read declared units from
+    }
+    collect(rules, 0);
+  }
+  const root = document.querySelector('main') || document.body;
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    const inline = el.style;
+    let isVhHeight = inline && /vh/.test(inline.height || '');
+    let isVhMin = inline && /vh/.test(inline.minHeight || '');
+    for (const sel of vhHeight) {
+      try {
+        if (el.matches(sel)) {
+          isVhHeight = true;
+          break;
+        }
+      } catch (e) { /* invalid selector sent over a live sheet */ }
+    }
+    for (const sel of vhMinHeight) {
+      try {
+        if (el.matches(sel)) {
+          isVhMin = true;
+          break;
+        }
+      } catch (e) { /* invalid selector sent over a live sheet */ }
+    }
+    if (!isVhHeight && !isVhMin) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height < vh * 0.95) continue;
+    if (isVhHeight) el.style.height = target + 'px';
+    if (isVhMin) el.style.minHeight = target + 'px';
+    out.clamped++;
+    if (out.samples.length < 5) {
+      out.samples.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''));
+    }
+  }
+  return out;
 }
 
 /**

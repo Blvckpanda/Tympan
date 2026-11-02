@@ -171,6 +171,26 @@ All notable changes to this project are documented here. The format is based on
   an artifact, so pack and release cannot drift.
 
 ### Fixed
+- **A screen-`min-height:100vh` cover threw `SPILL PAGES` that no shrink could
+  answer.** Chromium re-resolves `vh` against the print layout viewport
+  (paper ÷ scale), so every shrink step raised the very height it was trying
+  to fit — the loop burned all six retries at scale 0.55 with 608px of content
+  and threw (found 2026-11-02 on a Harbor-Gardens-style AI deck). The fix is
+  dimensional: before any measurement or print, blocks whose stylesheets
+  declare a `vh` unit on `height`/`min-height` and lay out at ≥ 95% of the
+  load viewport are rewritten to the sheet's own text-area height in CSS px —
+  an absolute value the print pass cannot re-inflate — so the cover fills the
+  sheet it is printed on. Counts ride the judged page record (`vhClamped`) and
+  the flow result; `measureSections` clamps identically so preview numbers and
+  the layout-auto chooser describe the same sheets the print will make. Pinned
+  by `test/spill.test.mjs`.
+- **A footer nested inside the last section printed twice.** The pull-out
+  merger grabbed any `<footer>` with a bare `querySelector` — including one
+  inside a section — and `mergeFooter()` then appended a copy of the band into
+  the same section's html, so the flow body carried the footer text twice
+  (stranded sheet at ~1% fill before it). The `<footer>` selectors are now
+  direct-child scoped (`main > footer`, `body > footer`): a footer inside a
+  section is content, not a trailing band. Pinned by `test/flow.test.mjs`.
 - **Every page was silently scaled to 0.902, and the cause was our own
   measurement.** `resolveGeometry()` laid the document out at 774px (a constant)
   while A4 minus the default side margins is a 698px column, and

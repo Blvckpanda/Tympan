@@ -30,6 +30,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { armRequestPolicy } from './security.js';
 import { probeRegex } from './verify.js';
+import { clampViewportSizedBlocksInPage } from './template.js';
 
 // Fonts settle deterministically: a stylesheet `@import` applies after the
 // load event and its font binaries only START loading the next frame, so a
@@ -153,6 +154,14 @@ export async function printFlow(browser, docHtml, outPath, geo, opts = {}) {
       .waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 30000 })
       .catch(() => {});
     if (opts.waitFor) await page.waitForSelector(opts.waitFor, { timeout: opts.waitTimeout ?? 10000 });
+    // Same dimensional fix as printSection: a screen `min-height:100vh` cover
+    // would lay out at the print viewport's vh (paper/scale — grows as scale
+    // shrinks) and strand a nearly-empty sheet behind it. Made absolute to
+    // the sheet's text-area height here, before the print; the count is
+    // reported, never silent.
+    const vhClamped = await page.evaluate(clampViewportSizedBlocksInPage, {
+      targetPx: Math.round((geo.H_IN - geo.margins.top - geo.margins.bottom) * 96),
+    });
     // Content wider than the column cannot be fragmented by Chromium — it is
     // clipped at the page edge. Measured here, where the layout width is known,
     // and reported by verification instead of discovered by eye.
@@ -185,6 +194,7 @@ export async function printFlow(browser, docHtml, outPath, geo, opts = {}) {
       scale: opts.scale && opts.scale >= 0.97 ? opts.scale : 1,
       preferCSSPageSize: false,
     });
+    overflow.vhClamped = vhClamped.clamped;
     if (opts.onProgress) opts.onProgress('flow-printed', { outPath, ...overflow });
     return overflow;
   } finally {

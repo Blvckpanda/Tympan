@@ -89,6 +89,13 @@ are printed, the artifact is inspected, and the scale shrinks until the
 one-page invariant *holds* — late webfonts and print rounding can't produce
 sliver pages. A regression test pins this ([test/spill.test.mjs](test/spill.test.mjs)).
 
+And covers can't be fought with the shrink at all: a screen-styled
+`min-height:100vh` hero re-resolves `vh` against the print layout viewport
+(paper ÷ scale), so every shrink step re-inflates the height it is trying to
+fit. Before the measurement, tympan rewrites viewport-sized blocks to the
+sheet's own text-area height and reports the count on the page record, so a
+100vh cover fills the sheet it prints on instead of throwing `SPILL PAGES`.
+
 ## Screenshots
 
 **tympan ui** — paste HTML or watch a local file, watch sections convert one by

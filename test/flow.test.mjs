@@ -107,3 +107,28 @@ test('metrics: an unmeasured keep-together is not reported as a split', () => {
   ]);
   assert.deepEqual(q.splitKeepTogether, [2], 'only the measured split counts');
 });
+
+test('flow: a footer nested in the last section prints once, not twice', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
+  // The Harbor-Gardens-style brief that caught the bug: the footer is INSIDE
+  // the last section, and the pull-out merge used to grab it with a bare
+  // querySelector('footer') anyway, then mergeFooter appended a copy of the
+  // band into the same section's html — the flow body carried the footer
+  // text twice. Direct-child scoping leaves in-section content alone.
+  const src = path.join(OUT, 'footer-in-section.html');
+  fs.writeFileSync(
+    src,
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>nested footer</title>' +
+    '<style>main{margin:0 auto;max-width:800px}.page-section{padding:40px;margin:0 0 20px}' +
+    'footer{font-size:12px;padding:8px 0;text-align:center}</style></head><body><main>' +
+    '<section class="page-section" id="one"><h1>One</h1>' + Array.from({ length: 30 }, (_, i) => `<p>Paragraph ${i + 1} of the first section body.</p>`).join('') + '</section>' +
+    '<section class="page-section" id="two"><h1>Two</h1><p>Second section body.</p>' +
+    '<footer>NUMBERED-SIGIL-9F3</footer></section>' +
+    '</main></body></html>'
+  );
+  const r = await convert(src, { out: out('nested-footer.pdf'), flow: true });
+  assert.equal(r.layout, 'flow');
+  const pages = await extractPages(r.master);
+  const occurrences = pages.reduce((n, text) => n + (text.match(/NUMBERED-SIGIL-9F3/g) || []).length, 0);
+  assert.equal(occurrences, 1, `the footer text must appear exactly once (got ${occurrences})`);
+});

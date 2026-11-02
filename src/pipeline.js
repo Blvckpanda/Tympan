@@ -35,6 +35,7 @@ import {
   CONTENT_W,
   PORTRAIT_CONTENT_W,
   DEFAULT_CONTENT_MAX_WIDTH,
+  clampViewportSizedBlocksInPage,
 } from './template.js';
 import { detectSectionsInPage, capturePreludeInPage, withPrelude } from './detect.js';
 import { verifyOutputs } from './verify.js';
@@ -140,9 +141,16 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
     // Trailing band that becomes part of the last page. Ordered: deck-style
     // centered block, semantic <footer>, landing-style trailing .footer div
     // (body-level — the real brief that exposed this used exactly that).
+    // The <footer> selectors are DIRECT-CHILD scoped on purpose: a footer
+    // nested INSIDE the last section is content, not a band to pull out, and
+    // a bare querySelector('footer') grabbed it anyway — mergeFooter then
+    // appended a copy of the band into the same section's html, printing the
+    // footer text twice (found 2026-11-02 on a Harbor-Gardens-style brief;
+    // one copy on the last sheet and one stranded before it in --flow).
     const band =
       document.querySelector('main > div.text-center') ||
-      document.querySelector('footer') ||
+      document.querySelector('main > footer') ||
+      document.querySelector('body > footer') ||
       document.querySelector('body > .footer');
     return band ? band.outerHTML : null;
   });
@@ -200,11 +208,13 @@ export async function printSection(browser, templateHtml, sectionHtml, outPath, 
     await page.setContent(docHtml, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready.then(() => true));
     await page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 30000 }).catch(() => {});
-    // `complete` is true for a FAILED image too, and a failed image prints as
-    // blank space — the silent loss this measures. Taken here, not only on the
-    // source page, because this is the layout whose bytes become the PDF.
-    const { h, w, lastBlockKind, brokenImages } = await page.evaluate(measureBlockInPage, 'main');
+    // Viewport-sized blocks (screen `min-height:100vh` covers) must be made
+    // absolute BEFORE both the measurement and the print: Chromium re-resolves
+    // vh against the print layout viewport (paper/scale), so every shrink
+    // step raises the height it tries to fit and the loop can never win.
     const usableH = geo.H_IN - geo.margins.top - geo.margins.bottom;
+    const vhClamped = await page.evaluate(clampViewportSizedBlocksInPage, { targetPx: Math.round(usableH * 96) });
+    const { h, w, lastBlockKind, brokenImages } = await page.evaluate(measureBlockInPage, 'main');
     const usableW = geo.W_IN - geo.margins.left - geo.margins.right;
     // Open-loop measurement cannot be fully trusted: late font swaps make the
     // real print layout taller than measured, and Chromium's print rounding
@@ -259,6 +269,7 @@ export async function printSection(browser, templateHtml, sectionHtml, outPath, 
       widthScaleUsed,
       contentHeightPx: Math.round(h * scaleUsed),
       usableHeightPx: Math.round(usableH * 96),
+      vhClamped: vhClamped.clamped,
       lastBlockKind,
       brokenImages,
     };
@@ -299,6 +310,12 @@ export async function measureSections(browser, templateHtml, sections, geo, opts
       await page
         .waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 30000 })
         .catch(() => {});
+      // Same dimensional fix as printSection: preview numbers and the layout
+      // auto chooser must describe the SAME blocks the print pass will lay
+      // out; a vh cover measured live here would disagree with its sheet.
+      const vhClamped = await page.evaluate(clampViewportSizedBlocksInPage, {
+        targetPx: Math.round(usableH * 96),
+      });
       const m = await page.evaluate(measureBlockInPage, 'main');
       const hIn = m.h / 96;
       const wIn = m.w / 96;
@@ -325,6 +342,7 @@ export async function measureSections(browser, templateHtml, sections, geo, opts
         usableHeightPx: Math.round(usableH * 96),
         lastBlockKind: m.lastBlockKind,
         brokenImages: m.brokenImages,
+        vhClamped: vhClamped.clamped,
         shot,
       });
       if (opts.onProgress) opts.onProgress('measured', { index: i + 1, total: sections.length, id: sections[i].id });
@@ -1042,7 +1060,7 @@ export async function convert(inputPath, raw = {}) {
         })),        minify: minifyResult,
         stamp: stampResult,
         split: splitResult,
-      };
+      };
       result.quality = summarizeQuality(result.pages, { targetFill: options.targetFill });
       // Everything the document asked for and did not get, carried with the
       // result so `tympan lint` can name one lost image instead of only

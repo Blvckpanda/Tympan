@@ -160,3 +160,27 @@ test('end-to-end: tall multi-section document converts one page per section', as
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('screen min-height:100vh cover is clamped to the sheet, never spilled', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
+  const browser = await chromium.launch(launchOptions());
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-spill-')), 'vh.pdf');
+  try {
+    // The AI-deck cover pattern: a screen-CSS min-height:100vh block, printed
+    // from a clean template that carries NO print rules to neutralize it.
+    // Chromium re-resolves vh against the print layout viewport (paper/scale),
+    // so every shrink step re-inflates the height it is trying to fit — the
+    // old loop burned all six retries and threw SPILL PAGES. The dimensional
+    // fix rewrites the block to the sheet's text-area height BEFORE the
+    // measurement, so the record shows one clamp and the file shows one page.
+    const vhCover =
+      '<section id="cover" style="min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end">' +
+      '<p class="kicker">Q3 - Investment brief</p><h1>Harbor Gardens</h1></section>';
+    const record = await printSection(browser, TEMPLATE, vhCover, out, GEO);
+    assert.equal(record.vhClamped, 1, `exactly the cover must be clamped: ${JSON.stringify(record)}`);
+    assert.equal(await pageCount(out), 1, 'a 100vh cover must hold one page without throwing');
+  } finally {
+    await browser.close();
+    fs.rmSync(path.dirname(out), { recursive: true, force: true });
+  }
+});
