@@ -1,236 +1,171 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tympan — HTML to PDF, counted, not hoped</title>
-<meta name="description" content="tympan converts AI-generated HTML into PDFs: one semantic section per page, runtime print-CSS defeated, byte-deterministic, self-verifying output. Zero config.">
-<meta property="og:title" content="tympan — HTML to PDF, verified on every run">
-<meta property="og:description" content="One section, one page. Verified on every run. Deterministic bytes, safe by default, zero config.">
-<meta property="og:image" content="https://blvckpanda.github.io/Tympan/assets/social-card.png">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="style.css"></head><body>
+<title>tympan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="tympan turns single-file HTML into a PDF with one section per page, then counts the pages to prove it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-family='Georgia'>&#9608;</text></svg>">
-</head>
-<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 
-<header class="nav">
-  <a class="nav__mark" href="#">tympan<span class="dot">.</span></a>
-  <nav class="nav__links">
-    <a href="#demo">The cut</a>
-    <a href="#fill">Measured</a>
-    <a href="#ui">Preview UI</a>
-    <a href="#install">Install</a>
-    <a href="https://github.com/Blvckpanda/Tympan" class="nav__gh">GitHub &#8599;</a>
+
+<header class="wrap top">
+  <a class="mark" href="#top" aria-label="tympan home">tympan<b>.</b></a>
+  <nav aria-label="Primary">
+    <a href="https://github.com/Blvckpanda/Tympan">GitHub</a>
+    <a href="https://www.npmjs.com/package/tympan">npm</a>
   </nav>
 </header>
 
-<!-- ============ HERO ============ -->
-<section class="hero">
-  <svg class="hero__contours" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <g fill="none" stroke="#e9a83c" stroke-opacity="0.14">
-      <ellipse cx="880" cy="430" rx="220" ry="190"/>
-      <ellipse cx="880" cy="430" rx="340" ry="290"/>
-      <ellipse cx="880" cy="430" rx="470" ry="400"/>
-      <ellipse cx="880" cy="430" rx="610" ry="520"/>
-      <ellipse cx="880" cy="430" rx="760" ry="650"/>
-      <ellipse cx="880" cy="430" rx="920" ry="790"/>
-    </g>
-    <g stroke="#e9a83c" stroke-opacity="0.07">
-      <line x1="880" y1="-200" x2="880" y2="1000"/>
-      <line x1="620" y1="-200" x2="620" y2="1000"/>
-      <line x1="1140" y1="-200" x2="1140" y2="1000"/>
-      <line x1="120" y1="-200" x2="120" y2="1000"/>
-    </g>
-  </svg>
+<main id="top">
+<section class="wrap hero">
+  <p class="eyebrow">HTML to PDF, counted</p>
+  <h1>Print AI-made HTML <em>without</em> the stray pages.</h1>
+  <p class="lede">tympan turns a single-file HTML document into a PDF with one section per page, then counts the pages before it says it is done.</p>
+  <div class="cta">
+    <div class="cmd"><code><span class="p">$</span> npx tympan <span class="cmd-file">brief.html</span></code><button type="button" data-copy>Copy</button></div>
+    <a class="btn ghost" href="https://github.com/Blvckpanda/Tympan">View on GitHub</a>
+  </div>
+  <p class="fine">Open source, MIT. Needs Node 20 or newer and a Chromium (<span class="mono">npx playwright install chromium</span>).</p>
+</section>
 
-  <div class="hero__inner">
-    <div class="hero__copy">
-      <p class="eyebrow">HTML &#8594; PDF &nbsp;&middot;&nbsp; COUNTED, NOT HOPED</p>
-      <h1 class="hero__mark">tympan<span class="dot">.</span></h1>
-      <p class="hero__lede"><em>One section, one page.</em><br><strong>Verified</strong> <em>on every run.</em></p>
-      <ul class="pills">
-        <li><span class="pill__tick"></span>3 sections = 3 pages</li>
-        <li><span class="pill__tick"></span>same input, same bytes</li>
-        <li><span class="pill__tick"></span>lint explains every blank</li>
-      </ul>
-      <div class="hero__cta">
-        <code class="cta cta--primary">$ npx tympan deck.html</code>
-        <a class="cta cta--ghost" href="https://github.com/Blvckpanda/Tympan">Read the spec</a>
+<section class="wrap" aria-labelledby="stage-h" style="padding-bottom: clamp(48px, 8vw, 96px)">
+  <div class="stage" id="stage" data-state="browser">
+    <div class="stage-head">
+      <p id="stage-h"><b>deck.html</b> &middot; 4 sections &middot; a script injects print CSS on load, as AI bundles do</p>
+      <div class="seg" role="tablist" aria-label="Print method">
+        <button type="button" role="tab" id="tab-browser" data-state="browser" aria-selected="true" aria-controls="row-browser"><i></i>Browser print</button>
+        <button type="button" role="tab" id="tab-tympan" data-state="tympan" aria-selected="false" aria-controls="row-tympan" tabindex="-1"><i></i>tympan</button>
       </div>
     </div>
 
-    <div class="hero__art" aria-hidden="true">
-      <div class="fan">
-        <div class="sheet sheet--a">
-          <i class="bar bar--amber s"></i><i class="bar bar--ink xl"></i>
-          <i class="bar bar--sand"></i><i class="bar bar--sand short"></i>
-          <div class="tealblock"></div>
-        </div>
-        <div class="sheet sheet--b">
-          <i class="bar bar--amber s"></i><i class="bar bar--ink l"></i>
-          <i class="bar bar--sand"></i><i class="bar bar--sand short"></i>
-          <i class="bar bar--sand"></i><i class="bar bar--sand short"></i>
-          <i class="bar bar--sand"></i>
-        </div>
-        <div class="sheet sheet--c">
-          <i class="bar bar--ink m"></i>
-          <i class="beigecol"></i><i class="beigecol beigecol--tall"></i>
-        </div>
-        <div class="badge-check">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0c0b09" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
-          <span>3 / 3</span>
-        </div>
-      </div>
-      <span class="folio folio--1">02</span>
-      <span class="folio folio--2">03</span>
+    <ol class="sheets" id="row-browser" role="tabpanel" aria-labelledby="tab-browser">
+      <li class="sheet" style="--i:0"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-01.jpeg" loading="lazy" alt="" alt="Page 1: the cover, with its subtitle missing" width="661" height="935"></button><span class="tag"><b>p1</b>cover</span></li>
+      <li class="sheet flag" style="--i:1"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-02.jpeg" loading="lazy" alt="" alt="Page 2: one stray line of the cover's subtitle on an otherwise blank page" width="661" height="935"></button><span class="tag"><b>p2 &middot; stray line</b>cover spills over</span></li>
+      <li class="sheet" style="--i:2"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-03.jpeg" loading="lazy" alt="" alt="Page 3: market overview" width="661" height="935"></button><span class="tag"><b>p3</b>market</span></li>
+      <li class="sheet" style="--i:3"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-04.jpeg" loading="lazy" alt="" alt="Page 4: financial plan" width="661" height="935"></button><span class="tag"><b>p4</b>financials</span></li>
+      <li class="sheet" style="--i:4"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-05.jpeg" loading="lazy" alt="" alt="Page 5: risks and mitigation" width="661" height="935"></button><span class="tag"><b>p5</b>risks</span></li>
+      <li class="sheet flag" style="--i:5"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-06.jpeg" loading="lazy" alt="" alt="Page 6: the footer line alone on a blank page" width="661" height="935"></button><span class="tag"><b>p6 &middot; orphan</b>footer alone</span></li>
+    </ol>
+
+    <ol class="sheets" id="row-tympan" role="tabpanel" aria-labelledby="tab-tympan" hidden>
+      <li class="sheet good" style="--i:0"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-07.jpeg" loading="lazy" alt="" alt="Page 1: the full cover with title and subtitle" width="661" height="935"></button><span class="tag"><b>p1</b>cover</span></li>
+      <li class="sheet good" style="--i:1"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-08.jpeg" loading="lazy" alt="" alt="Page 2: market overview" width="661" height="935"></button><span class="tag"><b>p2</b>market</span></li>
+      <li class="sheet good" style="--i:2"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-09.jpeg" loading="lazy" alt="" alt="Page 3: financial plan" width="661" height="935"></button><span class="tag"><b>p3</b>financials</span></li>
+      <li class="sheet good" style="--i:3"><button type="button" class="page" data-zoom aria-label="Enlarge this page"><img src="assets/img-10.jpeg" loading="lazy" alt="" alt="Page 4: risks and mitigation, with the footer on the same page" width="661" height="935"></button><span class="tag"><b>p4</b>risks + footer</span></li>
+    </ol>
+
+    <div class="verdict" id="verdict" data-state="browser" aria-live="polite">
+      <div class="n" id="v-n">6</div>
+      <div class="t"><strong id="v-h">pages for 4 sections</strong><span id="v-t">The cover spills a line onto page 2 and the footer ends up alone on page 6. You find that out by flipping through the file.</span></div>
+    </div>
+    <p class="prov">Real output, nothing retouched. The same deck.html printed with Playwright's page.pdf() (A4, backgrounds on) and with tympan 0.7.0, on the same Chromium.</p>
+  </div>
+</section>
+
+<section class="band wrap" aria-labelledby="get-h" style="padding-top:0">
+  <p class="eyebrow">What it does</p>
+  <h2 id="get-h">Built for the HTML your assistant hands you.</h2>
+  <p class="lede">Those files are one long page with a script that rewrites the print CSS at load. Browsers obey it. tympan does not.</p>
+  <div class="grid4">
+    <div><h3>One section, one page</h3><p>Sections are found in the rendered page and printed one at a time. If a section is too big, the scale shrinks until it fits, so a late-loading font cannot sneak a sliver page past it.</p></div>
+    <div><h3>Your page, not a white sheet</h3><p>The cover becomes page 1, the footer lands on the last page, and your page background, dark or light, is carried over to the margins.</p></div>
+    <div><h3>Same input, same bytes</h3><p>Fixed metadata and an input-derived document ID make identical input and options produce identical files. A test converts a real 8-page document twice and compares the hashes.</p></div>
+    <div><h3>Fails loudly</h3><p>The page count and an optional last-page text probe are checked after printing. Any mismatch exits non-zero, so CI stops instead of shipping a bad PDF.</p></div>
+  </div>
+  <p class="extras">Text stays selectable and links stay clickable. The PDF carries real metadata, and <span class="mono">--outline</span> adds a bookmarks panel with one entry per section.</p>
+</section>
+
+<section class="band wrap" aria-labelledby="rec-h" style="padding-top:0">
+  <div class="split">
+    <div class="term" role="img" aria-label="Terminal output of tympan converting deck.html: four sections detected, merged into 4 pages, 4 of 4 pages verified">
+      <div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="p">$</span> npx tympan deck.html
+<span class="dim">tympan: 4 section(s) via page-section-class
+tympan: section 1/4 (cover)
+tympan: section 2/4 (market)
+tympan: section 3/4 (financials)
+tympan: section 4/4 (risks)
+tympan: merged 4 page(s)</span>
+deck.pdf: <span class="ok">4/4 pages</span>
+<span class="dim">tympan: wrote deck.pdf</span></pre>
+    </div>
+    <div>
+      <p class="eyebrow">The receipt</p>
+      <h2 id="rec-h">It tells you how it decided.</h2>
+      <p>Every run says which strategy found your sections, prints each one as it goes, and ends with the page count it expected against the page count it got.</p>
+      <p>That is the real output from the demo above, with the file paths shortened.</p>
     </div>
   </div>
 </section>
 
-<!-- ============ THE CUT (live demo) ============ -->
-<section class="cut" id="demo">
-  <p class="chip">Y O U R &nbsp;&nbsp;H T M L</p>
-  <h2 class="cut__title">One long page. Four sections.</h2>
-
-  <div class="cut__stage">
-    <div class="doc" data-doc>
-      <div class="doc__block doc__block--media">
-        <div class="doc__media"></div>
-      </div>
-      <div class="doc__block">
-        <h3>Market Overview</h3>
-        <i class="rule"></i><i class="rule"></i><i class="rule rule--short"></i><i class="rule rule--bare"></i>
-      </div>
-      <div class="doc__block">
-        <h3>Financial Plan</h3>
-        <i class="rule"></i><i class="rule"></i><i class="rule rule--short"></i><i class="rule rule--bare"></i><i class="rule"></i>
-      </div>
-      <div class="doc__block">
-        <h3>Risks &amp; Mitigation</h3>
-        <i class="rule"></i><i class="rule rule--short"></i><i class="rule rule--bare"></i><i class="rule"></i><i class="rule rule--short"></i>
-      </div>
-    </div>
-
-    <div class="cut__arrow" aria-hidden="true">&#8594;</div>
-
-    <div class="stack" data-stack aria-hidden="true">
-      <div class="page" data-page="0"><span class="page__tag">cover</span></div>
-      <div class="page" data-page="1"><span class="page__tag">1/4 &middot; market</span></div>
-      <div class="page" data-page="2"><span class="page__tag">2/4 &middot; financial</span></div>
-      <div class="page" data-page="3"><span class="page__tag">3/4 &middot; risks</span></div>
-    </div>
-  </div>
-  <p class="cut__note" data-count>detected <b>3</b> section(s) &middot; merged <b id="sheetCount">1</b> page(s)</p>
-</section>
-
-<!-- ============ MEASURED: the fill duel ============ -->
-<section class="fill" id="fill">
-  <p class="eyebrow eyebrow--amber">MEASURED, BOTH MODES</p>
-  <h2 class="fill__title">Same HTML. <em>A third of the bytes.</em></h2>
-  <p class="fill__lede">The same deck printed two ways. Section mode leaves the page half empty; <code>--flow</code> keeps text with its headings and fills the sheet. Sweep the divider to see what that does to the stack.</p>
-
-  <div class="duelwrap" data-duelwrap>
-    <div class="duel duel--before" aria-label="section mode: 10 sheets, 64 percent fill, 424 KB, 6.6 seconds">
-      <p class="duel__label">SECTION MODE</p>
-      <div class="duel__stack">
-        <div class="mini mini--air r--2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r-2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r--2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r-2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--air r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-      </div>
-      <p class="duel__stats"><b>10</b> sheets &middot; <b>64%</b> fill &middot; <b>424 KB</b><span class="mhide"> &middot; <b>6.6&nbsp;s</b></span></p>
-    </div>
-
-    <div class="duel duel--after" aria-label="flow mode: 8 sheets, 81 percent fill, 132 KB, 2.2 seconds">
-      <div class="duel__stack">
-        <div class="mini mini--full r--1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i></div>
-        <div class="mini mini--full r-1"><i class="mbar mbar--amber"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--full r-2"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i></div>
-        <div class="mini mini--full r--2"><i class="mbar mbar--amber"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--full r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--full r--1"><i class="mbar mbar--sand"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--amber"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i></div>
-        <div class="mini mini--full r-1"><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--amber"></i></div>
-        <div class="mini mini--full r--2"><i class="mbar mbar--amber"></i><i class="mbar mbar--ink"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i><i class="mbar mbar--sand"></i></div>
-      </div>
-      <p class="duel__stats duel__stats--right"><span class="mhide"><b>8</b> sheets &middot; </span><b>81%</b> fill &middot; <b>132 KB</b><span class="mhide"> &middot; <b>2.2&nbsp;s</b></span></p>
-    </div>
-
-    <div class="fill__divider" data-divider role="slider" tabindex="0" aria-label="reveal flow mode output" aria-valuemin="0" aria-valuemax="100" aria-valuenow="55"></div>
-  </div>
-
-  <p class="fill__source">Numbers from the subscription-plans deck in <a href="https://github.com/Blvckpanda/Tympan/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a> &mdash; measured, not marketing.</p>
-
-  <button class="cta cta--primary cta--copy" data-copy="npx tympan deck.html --flow" type="button">Copy the run &mdash; $ npx tympan deck.html <b class="cta__flag">--flow</b></button>
-  <span class="copy__toast" data-toast>copied &mdash; now paste it</span>
-</section>
-
-<!-- ============ TYMPAN UI ============ -->
-<section class="ui" id="ui">
-  <div class="ui__copy">
-    <p class="eyebrow eyebrow--amber">T Y M P A N &nbsp; U I</p>
-    <h2 class="ui__title">See the cut<br><em>before you</em> print.</h2>
-    <p class="ui__body">Point it at a file, save, and the paginated PDF redraws beside you. No export step, no guessing where a page will break.</p>
-    <div class="callout callout--1">
-      <p class="callout__label">LIVE RELOAD</p>
-      <p>Watches the file. Save in your editor and the PDF re-renders.</p>
-    </div>
-    <div class="callout callout--2">
-      <p class="callout__label">DETECTION, SHOWN</p>
-      <p>Which strategy found your sections, and how many pages came out. No black box.</p>
-    </div>
-    <code class="ui__cmd">$ npx tympan-ui</code>
-  </div>
-
-  <figure class="ui__shot">
-    <div class="win">
-      <div class="win__bar"><span class="win__dot"></span><span class="win__dot"></span><span class="win__dot"></span><span class="win__url">127.0.0.1:4173 &mdash; tympan ui</span></div>
-      <div class="win__body">
-        <div class="win__shot"><img src="assets/tympan-ui.png" alt="tympan ui: HTML field on the left, live PDF preview on the right" loading="lazy"></div>
-        <span class="ui__badge"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg> 4 sheets &nbsp;&middot;&nbsp; prelude kept</span>
-      </div>
-    </div>
+<section class="band wrap" aria-labelledby="ui-h" style="padding-top:0">
+  <p class="eyebrow">tympan ui</p>
+  <h2 id="ui-h">See the cut before you print.</h2>
+  <p class="lede">Point it at a file, save in your editor, and the paginated PDF redraws beside you. It shows which strategy found your sections and how many pages came out.</p>
+  <figure class="shot">
+    <img src="assets/img-11.png" loading="lazy" alt="" alt="The tympan ui: a form on the left with a watched file path and a log reading detected 3 sections via semantic-children, merged 4 pages; a PDF viewer on the right showing page 1 of 4 of a dark brief" width="2000" height="1344">
+    <figcaption>A dark portrait brief: the hero is kept as page 1, giving 4 pages from 4 blocks. Run it with <span class="mono">npx -p tympan tympan-ui</span>.</figcaption>
   </figure>
 </section>
 
-<!-- ============ INSTALL / TERMINAL ============ -->
-<section class="term" id="install">
-  <h2 class="term__label">T Y M P A N</h2>
-  <div class="termwin">
-    <div class="termwin__bar"><span class="win__dot"></span><span class="win__dot"></span><span class="win__dot"></span></div>
-    <pre class="termwin__body" id="termBody" aria-label="terminal">$ </pre>
-  </div>
-  <div class="term__opts">
-    <code>npx tympan deck.html --json</code>
-    <code>npx tympan lint report.pdf</code>
-    <code>npx tympan test --diff</code>
-  </div>
-</section>
-
-<!-- ============ WEDGE ============ -->
-<section class="wedge">
-  <h2 class="eyebrow eyebrow--amber">W H Y &nbsp; T Y M P A N</h2>
-  <div class="wedge__grid">
-    <article><h3>Deterministic bytes</h3><p>Same input, same bytes &mdash; fixed timestamps, content-derived IDs. Your CI can diff PDFs.</p></article>
-    <article><h3>Safe by default</h3><p>file:// reads and private networks are blocked. Hostile documents cannot reach your LAN.</p></article>
-    <article><h3>Self-verifying</h3><p>Every run checks its own output: probes, page counts, byte matches. Failures are loud.</p></article>
-    <article><h3>Lint that explains</h3><p>Fill, stranded headings, broken assets &mdash; 13 rules that name the cause, not the symptom.</p></article>
+<section class="band wrap" aria-labelledby="count-h" style="padding-top:0">
+  <p class="eyebrow">Try it on your file</p>
+  <h2 id="count-h">Count your sections before you install anything.</h2>
+  <p class="lede">Drop an HTML file and this page runs a simplified version of tympan's section detection. It reads the file in your browser, nothing is uploaded, and it does not run your scripts.</p>
+  <div class="counter">
+    <div class="drop" id="drop">
+      <strong>Drop an .html file here</strong>
+      <span>or choose one. Single-file bundles from an AI assistant work best.</span>
+      <input type="file" id="file" accept=".html,.htm,text/html">
+      <label class="btn" for="file">Choose a file</label>
+    </div>
+    <div class="result" id="result" aria-live="polite"></div>
   </div>
 </section>
 
-<footer class="foot">
-  <p class="foot__mark">tympan<span class="dot">.</span></p>
-  <p class="foot__meta">MIT &middot; <code>npm i tympan</code> &middot; <a href="https://github.com/Blvckpanda/Tympan">github.com/Blvckpanda/Tympan</a></p>
+<section class="band wrap" aria-labelledby="pick-h" style="padding-top:0">
+  <p class="eyebrow">Fit</p>
+  <h2 id="pick-h">When another tool is the better pick.</h2>
+  <p class="lede">tympan is a command you run yourself. It does one job, and the tools below do others.</p>
+  <ul class="picks">
+    <li><div class="need">A hosted API with uptime and invoices</div><div class="use"><b>DocRaptor, PDFShift, html2pdf.app.</b> You send HTML, they render it and bill you.</div></li>
+    <li><div class="need">A service your backend can call over HTTP</div><div class="use"><b>Gotenberg.</b> A Docker image with a Chromium endpoint and other converters behind one API.</div></li>
+    <li><div class="need">Print-first typesetting from clean, script-free CSS</div><div class="use"><b>WeasyPrint or Prince.</b> They follow your print CSS, which is what you want when you wrote it.</div></li>
+    <li><div class="need">One long page with no breaks you care about</div><div class="use"><b>Playwright's page.pdf().</b> Plain Chromium printing is fine.</div></li>
+    <li class="us"><div class="need">AI-generated HTML that has to come out as one section per page, checked</div><div class="use"><b>tympan.</b> It prints each section on its own page and checks the count.</div></li>
+  </ul>
+</section>
+
+<section class="band wrap" aria-labelledby="next-h" style="padding-top:0">
+  <p class="eyebrow">In development</p>
+  <h2 id="next-h">Not in 0.7.0 yet.</h2>
+  <p class="lede">Slide decks fit one section per page. Long prose does not, because a short section cannot fill a sheet. These are being built for that case.</p>
+  <div class="next">
+    <div><code>--flow</code><p>Let Chromium paginate a whole prose document instead of one section per sheet, so pages fill.</p></div>
+    <div><code>tympan lint</code><p>Named findings for a bad-looking PDF, such as a sparse page or an image that never loaded.</p></div>
+    <div><code>tympan preview</code><p>One sheet per detected section, shown before you convert, with how much of the sheet it fills.</p></div>
+    <div><code>tympan test</code><p>Pixel fingerprints for every page, so a dropped background or a lost figure fails a test.</p></div>
+  </div>
+</section>
+
+<section class="band wrap close" aria-labelledby="go-h" style="padding-top:0">
+  <h2 id="go-h">Convert one file. Read the receipt.</h2>
+  <div class="cta">
+    <div class="cmd"><code><span class="p">$</span> npx tympan <span class="cmd-file">brief.html</span></code><button type="button" data-copy>Copy</button></div>
+    <a class="btn ghost" href="https://github.com/Blvckpanda/Tympan">Star on GitHub</a>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>tympan &middot; MIT &middot; Node 20+</span>
+    <span><a href="https://github.com/Blvckpanda/Tympan">GitHub</a> &middot; <a href="https://www.npmjs.com/package/tympan">npm</a></span>
+  </div>
 </footer>
 
+<div id="lb" hidden role="dialog" aria-modal="true" aria-label="Page preview"><img alt=""><button type="button" class="btn" id="lb-x">Close</button></div>
+
+<script id="sample" type="text/plain">PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KPHRpdGxlPkhhcmJvciBHYXJkZW5zIOKAlCBRMyBJbnZlc3RtZW50IEJyaWVmPC90aXRsZT4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIj4KPHN0eWxlPgogIDpyb290IHsgLS1pbms6IzBmMTcyYTsgLS1tdXQ6IzY0NzQ4YjsgLS1saW5lOiNlMmU4ZjA7IC0tYnJhbmQ6IzBlNzQ5MDsgLS1icmFuZDI6IzE2NGU2MzsgLS1iZzojZjFmNWY5OyB9CiAgKiB7IGJveC1zaXppbmc6IGJvcmRlci1ib3g7IH0KICBib2R5IHsgbWFyZ2luOjA7IGJhY2tncm91bmQ6dmFyKC0tYmcpOyBjb2xvcjp2YXIoLS1pbmspOyBmb250LWZhbWlseTogSW50ZXIsICJTZWdvZSBVSSIsIEFyaWFsLCBzYW5zLXNlcmlmOyB9CiAgbWFpbiB7IG1heC13aWR0aDogODIwcHg7IG1hcmdpbjogMCBhdXRvOyBwYWRkaW5nOiAyNHB4IDAgNDhweDsgfQogIC5wYWdlLXNlY3Rpb24geyBiYWNrZ3JvdW5kOiNmZmY7IGJvcmRlci1yYWRpdXM6MTRweDsgcGFkZGluZzo0NHB4IDQ4cHg7IG1hcmdpbjowIDAgMjhweDsgYm94LXNoYWRvdzowIDFweCAzcHggcmdiYSgxNSwyMyw0MiwuMDgpOyB9CiAgLmNvdmVyLXBhZ2UgeyBtaW4taGVpZ2h0OiA3MHZoOyBjb2xvcjojZmZmOyBiYWNrZ3JvdW5kOmxpbmVhci1ncmFkaWVudCgxMzVkZWcsdmFyKC0tYnJhbmQpLHZhcigtLWJyYW5kMikpOyBkaXNwbGF5OmZsZXg7IGZsZXgtZGlyZWN0aW9uOmNvbHVtbjsganVzdGlmeS1jb250ZW50OmZsZXgtZW5kOyB9CiAgLmtpY2tlciB7IGZvbnQ6NjAwIDEycHgvMSB1aS1tb25vc3BhY2UsTWVubG8sbW9ub3NwYWNlOyBsZXR0ZXItc3BhY2luZzouMmVtOyB0ZXh0LXRyYW5zZm9ybTp1cHBlcmNhc2U7IG9wYWNpdHk6Ljg7IG1hcmdpbi1ib3R0b206MThweDsgfQogIGgxIHsgZm9udC1zaXplOjUycHg7IGxpbmUtaGVpZ2h0OjEuMDU7IG1hcmdpbjowIDAgMTRweDsgbGV0dGVyLXNwYWNpbmc6LS4wMmVtOyB9CiAgaDIgeyBmb250LXNpemU6MjZweDsgbWFyZ2luOjAgMCA2cHg7IGxldHRlci1zcGFjaW5nOi0uMDFlbTsgfQogIC5zdWIgeyBjb2xvcjp2YXIoLS1tdXQpOyBtYXJnaW46MCAwIDI2cHg7IGZvbnQtc2l6ZToxNXB4OyB9CiAgLmNvdmVyLXBhZ2UgLnN1YiB7IGNvbG9yOnJnYmEoMjU1LDI1NSwyNTUsLjgpOyBmb250LXNpemU6MThweDsgbWF4LXdpZHRoOjUyMHB4OyB9CiAgLnN0YXRzIHsgZGlzcGxheTpncmlkOyBncmlkLXRlbXBsYXRlLWNvbHVtbnM6cmVwZWF0KDMsMWZyKTsgZ2FwOjE2cHg7IG1hcmdpbjowIDAgMjZweDsgfQogIC5zdGF0IHsgYm9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTsgYm9yZGVyLXJhZGl1czoxMnB4OyBwYWRkaW5nOjE4cHg7IH0KICAuc3RhdCBiIHsgZGlzcGxheTpibG9jazsgZm9udC1zaXplOjMwcHg7IGxldHRlci1zcGFjaW5nOi0uMDJlbTsgfQogIC5zdGF0IHNwYW4geyBjb2xvcjp2YXIoLS1tdXQpOyBmb250LXNpemU6MTNweDsgfQogIHAgeyBmb250LXNpemU6MTVweDsgbGluZS1oZWlnaHQ6MS42NTsgbWFyZ2luOjAgMCAxNHB4OyB9CiAgdGFibGUgeyB3aWR0aDoxMDAlOyBib3JkZXItY29sbGFwc2U6Y29sbGFwc2U7IGZvbnQtc2l6ZToxNHB4OyBtYXJnaW46MCAwIDI0cHg7IH0KICB0aCx0ZCB7IHRleHQtYWxpZ246bGVmdDsgcGFkZGluZzoxMXB4IDEycHg7IGJvcmRlci1ib3R0b206MXB4IHNvbGlkIHZhcigtLWxpbmUpOyB9CiAgdGggeyBmb250LXNpemU6MTJweDsgbGV0dGVyLXNwYWNpbmc6LjA4ZW07IHRleHQtdHJhbnNmb3JtOnVwcGVyY2FzZTsgY29sb3I6dmFyKC0tbXV0KTsgfQogIHRkLm4sdGgubiB7IHRleHQtYWxpZ246cmlnaHQ7IGZvbnQtdmFyaWFudC1udW1lcmljOnRhYnVsYXItbnVtczsgfQogIC5jaGFydCB7IGJvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7IGJvcmRlci1yYWRpdXM6MTJweDsgcGFkZGluZzoxOHB4IDE4cHggOHB4OyBtYXJnaW4tYm90dG9tOjhweDsgfQogIC5yaXNrIHsgZGlzcGxheTpmbGV4OyBnYXA6MTZweDsgYm9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTsgYm9yZGVyLXJhZGl1czoxMnB4OyBwYWRkaW5nOjE4cHg7IG1hcmdpbjowIDAgMTRweDsgfQogIC50YWcgeyBmbGV4Om5vbmU7IHdpZHRoOjY0cHg7IGhlaWdodDoyNnB4OyBib3JkZXItcmFkaXVzOjk5cHg7IGZvbnQ6NjAwIDExcHgvMjZweCB1aS1tb25vc3BhY2UsbW9ub3NwYWNlOyB0ZXh0LWFsaWduOmNlbnRlcjsgbGV0dGVyLXNwYWNpbmc6LjA2ZW07IH0KICAuaGkgeyBiYWNrZ3JvdW5kOiNmZWUyZTI7IGNvbG9yOiM5OTFiMWIgfSAubWQgeyBiYWNrZ3JvdW5kOiNmZWYzYzc7IGNvbG9yOiM5MjQwMGUgfSAubG8geyBiYWNrZ3JvdW5kOiNkY2ZjZTc7IGNvbG9yOiMxNjY1MzQgfQogIC5yaXNrIGgzIHsgbWFyZ2luOjAgMCA0cHg7IGZvbnQtc2l6ZToxNnB4IH0gLnJpc2sgcCB7IG1hcmdpbjowOyBmb250LXNpemU6MTRweDsgY29sb3I6IzMzNDE1NSB9CiAgZm9vdGVyIHsgdGV4dC1hbGlnbjpjZW50ZXI7IGNvbG9yOnZhcigtLW11dCk7IGZvbnQtc2l6ZToxMnB4OyBwYWRkaW5nOjhweCAwIDA7IH0KPC9zdHlsZT4KPC9oZWFkPgo8Ym9keT4KPG1haW4+CiAgPHNlY3Rpb24gY2xhc3M9InBhZ2Utc2VjdGlvbiBjb3Zlci1wYWdlIiBpZD0iY292ZXIiPgogICAgPGRpdiBjbGFzcz0ia2lja2VyIj5RMyDCtyBJbnZlc3RtZW50IGJyaWVmIMK3IENvbmZpZGVudGlhbDwvZGl2PgogICAgPGgxPkhhcmJvciBHYXJkZW5zPGJyPlBoYXNlIElJPC9oMT4KICAgIDxwIGNsYXNzPSJzdWIiPkEgd2F0ZXJmcm9udCBtaXhlZC11c2UgZGV2ZWxvcG1lbnQ6IG1hcmtldCBjYXNlLCBmaW5hbmNpYWwgcGxhbiBhbmQgdGhlIHJpc2tzIHdlIGFyZSB1bmRlcndyaXRpbmcuPC9wPgogIDwvc2VjdGlvbj4KCiAgPHNlY3Rpb24gY2xhc3M9InBhZ2Utc2VjdGlvbiIgaWQ9Im1hcmtldCI+CiAgICA8aDI+TWFya2V0IG92ZXJ2aWV3PC9oMj4KICAgIDxwIGNsYXNzPSJzdWIiPkRlbWFuZCBpcyBvdXRydW5uaW5nIHN1cHBseSBpbiB0aGUgdGhyZWUgc3VibWFya2V0cyB3ZSBjYXJlIGFib3V0LjwvcD4KICAgIDxkaXYgY2xhc3M9InN0YXRzIj4KICAgICAgPGRpdiBjbGFzcz0ic3RhdCI+PGI+Ni4yJTwvYj48c3Bhbj5Bbm51YWwgcmVudCBncm93dGgsIDMteXIgYXZnPC9zcGFuPjwvZGl2PgogICAgICA8ZGl2IGNsYXNzPSJzdGF0Ij48Yj45NCU8L2I+PHNwYW4+T2NjdXBhbmN5LCBjb21wYXJhYmxlIGFzc2V0czwvc3Bhbj48L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0ic3RhdCI+PGI+MS44azwvYj48c3Bhbj5Vbml0cyBzaG9ydCBvZiBkZW1hbmQgYnkgMjAyODwvc3Bhbj48L2Rpdj4KICAgIDwvZGl2PgogICAgPHA+V2F0ZXJmcm9udCByZW50YWwgc3RvY2sgaGFzIGdyb3duIGJ5IDQlIG92ZXIgZml2ZSB5ZWFycyB3aGlsZSBob3VzZWhvbGQgZm9ybWF0aW9uIGdyZXcgYnkgMTElLiBOZXcgc3VwcGx5IGlzIGNvbmNlbnRyYXRlZCBpbiB0aGUgcHJlbWl1bSB0aWVyLCBsZWF2aW5nIHRoZSBtaWRkbGUgb2YgdGhlIG1hcmtldCBzdHJ1Y3R1cmFsbHkgdW5kZXItc2VydmVkLCB3aGljaCBpcyB3aGVyZSBQaGFzZSBJSSBpcyBwb3NpdGlvbmVkLjwvcD4KICAgIDxwPlRocmVlIGNhdGFseXN0cyBzdXBwb3J0IHRoZSB0aGVzaXM6IHRoZSBmZXJyeSB0ZXJtaW5hbCBleHBhbnNpb24gb3BlbmluZyBuZXh0IHNwcmluZywgdGhlIGVtcGxveWVyIHJlbG9jYXRpb25zIGFubm91bmNlZCBpbiB0aGUgdGVjaCBjb3JyaWRvciwgYW5kIGEgem9uaW5nIGNoYW5nZSB0aGF0IGNhcHMgY29tcGV0aW5nIHdhdGVyZnJvbnQgc3VwcGx5IGF0IGN1cnJlbnQgbGV2ZWxzIHRocm91Z2ggMjAzMC48L3A+CiAgICA8cD5XZSBzdHJlc3MtdGVzdGVkIGRlbWFuZCBhZ2FpbnN0IGEgMjAlIHNsb3dlciBhYnNvcnB0aW9uIGNhc2UuIFN0YWJpbGlzZWQgb2NjdXBhbmN5IGZhbGxzIHRvIDg5JSBhbmQgdGhlIHByb2plY3Qgc3RpbGwgY2xlYXJzIGl0cyBodXJkbGUgcmF0ZS48L3A+CiAgPC9zZWN0aW9uPgoKICA8c2VjdGlvbiBjbGFzcz0icGFnZS1zZWN0aW9uIiBpZD0iZmluYW5jaWFscyI+CiAgICA8aDI+RmluYW5jaWFsIHBsYW48L2gyPgogICAgPHAgY2xhc3M9InN1YiI+RWlnaHQtcXVhcnRlciBwcm9qZWN0aW9uLCBiYXNlIGNhc2UsIFVTRCB0aG91c2FuZHMuPC9wPgogICAgPHRhYmxlPgogICAgICA8dGhlYWQ+PHRyPjx0aD5RdWFydGVyPC90aD48dGggY2xhc3M9Im4iPlJldmVudWU8L3RoPjx0aCBjbGFzcz0ibiI+T3BleDwvdGg+PHRoIGNsYXNzPSJuIj5OT0k8L3RoPjx0aCBjbGFzcz0ibiI+TWFyZ2luPC90aD48L3RyPjwvdGhlYWQ+CiAgICAgIDx0Ym9keT4KICAgICAgICA8dHI+PHRkPlExPC90ZD48dGQgY2xhc3M9Im4iPjEsMjQwPC90ZD48dGQgY2xhc3M9Im4iPjgyMDwvdGQ+PHRkIGNsYXNzPSJuIj40MjA8L3RkPjx0ZCBjbGFzcz0ibiI+MzQlPC90ZD48L3RyPgogICAgICAgIDx0cj48dGQ+UTI8L3RkPjx0ZCBjbGFzcz0ibiI+MSw0MTA8L3RkPjx0ZCBjbGFzcz0ibiI+ODYwPC90ZD48dGQgY2xhc3M9Im4iPjU1MDwvdGQ+PHRkIGNsYXNzPSJuIj4zOSU8L3RkPjwvdHI+CiAgICAgICAgPHRyPjx0ZD5RMzwvdGQ+PHRkIGNsYXNzPSJuIj4xLDY5MDwvdGQ+PHRkIGNsYXNzPSJuIj45MDU8L3RkPjx0ZCBjbGFzcz0ibiI+Nzg1PC90ZD48dGQgY2xhc3M9Im4iPjQ2JTwvdGQ+PC90cj4KICAgICAgICA8dHI+PHRkPlE0PC90ZD48dGQgY2xhc3M9Im4iPjEsOTgwPC90ZD48dGQgY2xhc3M9Im4iPjk0MDwvdGQ+PHRkIGNsYXNzPSJuIj4xLDA0MDwvdGQ+PHRkIGNsYXNzPSJuIj41MyU8L3RkPjwvdHI+CiAgICAgICAgPHRyPjx0ZD5RNTwvdGQ+PHRkIGNsYXNzPSJuIj4yLDI0MDwvdGQ+PHRkIGNsYXNzPSJuIj45ODU8L3RkPjx0ZCBjbGFzcz0ibiI+MSwyNTU8L3RkPjx0ZCBjbGFzcz0ibiI+NTYlPC90ZD48L3RyPgogICAgICAgIDx0cj48dGQ+UTY8L3RkPjx0ZCBjbGFzcz0ibiI+Miw0MTA8L3RkPjx0ZCBjbGFzcz0ibiI+MSwwMTA8L3RkPjx0ZCBjbGFzcz0ibiI+MSw0MDA8L3RkPjx0ZCBjbGFzcz0ibiI+NTglPC90ZD48L3RyPgogICAgICAgIDx0cj48dGQ+UTc8L3RkPjx0ZCBjbGFzcz0ibiI+Miw1NjA8L3RkPjx0ZCBjbGFzcz0ibiI+MSwwNDA8L3RkPjx0ZCBjbGFzcz0ibiI+MSw1MjA8L3RkPjx0ZCBjbGFzcz0ibiI+NTklPC90ZD48L3RyPgogICAgICAgIDx0cj48dGQ+UTg8L3RkPjx0ZCBjbGFzcz0ibiI+Miw2OTA8L3RkPjx0ZCBjbGFzcz0ibiI+MSwwNzA8L3RkPjx0ZCBjbGFzcz0ibiI+MSw2MjA8L3RkPjx0ZCBjbGFzcz0ibiI+NjAlPC90ZD48L3RyPgogICAgICA8L3Rib2R5PgogICAgPC90YWJsZT4KICAgIDxkaXYgY2xhc3M9ImNoYXJ0Ij4KICAgICAgPHN2ZyB2aWV3Qm94PSIwIDAgNzAwIDIyMCIgd2lkdGg9IjEwMCUiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iUmV2ZW51ZSBieSBxdWFydGVyIj4KICAgICAgICA8ZyBmaWxsPSIjMGU3NDkwIj4KICAgICAgICAgIDxyZWN0IHg9IjMwIiB5PSIxNTAiIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIvPjxyZWN0IHg9IjExNSIgeT0iMTQwIiB3aWR0aD0iNTAiIGhlaWdodD0iNjAiLz48cmVjdCB4PSIyMDAiIHk9IjEyNCIgd2lkdGg9IjUwIiBoZWlnaHQ9Ijc2Ii8+PHJlY3QgeD0iMjg1IiB5PSIxMDYiIHdpZHRoPSI1MCIgaGVpZ2h0PSI5NCIvPgogICAgICAgICAgPHJlY3QgeD0iMzcwIiB5PSI5MCIgd2lkdGg9IjUwIiBoZWlnaHQ9IjExMCIvPjxyZWN0IHg9IjQ1NSIgeT0iODAiIHdpZHRoPSI1MCIgaGVpZ2h0PSIxMjAiLz48cmVjdCB4PSI1NDAiIHk9IjcyIiB3aWR0aD0iNTAiIGhlaWdodD0iMTI4Ii8+PHJlY3QgeD0iNjI1IiB5PSI2NiIgd2lkdGg9IjUwIiBoZWlnaHQ9IjEzNCIvPgogICAgICAgIDwvZz4KICAgICAgICA8ZyBmb250LWZhbWlseT0idWktbW9ub3NwYWNlLG1vbm9zcGFjZSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzY0NzQ4YiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+CiAgICAgICAgICA8dGV4dCB4PSI1NSIgeT0iMjE2Ij5RMTwvdGV4dD48dGV4dCB4PSIxNDAiIHk9IjIxNiI+UTI8L3RleHQ+PHRleHQgeD0iMjI1IiB5PSIyMTYiPlEzPC90ZXh0Pjx0ZXh0IHg9IjMxMCIgeT0iMjE2Ij5RNDwvdGV4dD48dGV4dCB4PSIzOTUiIHk9IjIxNiI+UTU8L3RleHQ+PHRleHQgeD0iNDgwIiB5PSIyMTYiPlE2PC90ZXh0Pjx0ZXh0IHg9IjU2NSIgeT0iMjE2Ij5RNzwvdGV4dD48dGV4dCB4PSI2NTAiIHk9IjIxNiI+UTg8L3RleHQ+CiAgICAgICAgPC9nPgogICAgICA8L3N2Zz4KICAgIDwvZGl2PgogIDwvc2VjdGlvbj4KCiAgPHNlY3Rpb24gY2xhc3M9InBhZ2Utc2VjdGlvbiIgaWQ9InJpc2tzIj4KICAgIDxoMj5SaXNrcyAmYW1wOyBtaXRpZ2F0aW9uPC9oMj4KICAgIDxwIGNsYXNzPSJzdWIiPldoYXQgY291bGQgZ28gd3JvbmcsIGFuZCB3aGF0IHdlIGhhdmUgYWxyZWFkeSBkb25lIGFib3V0IGl0LjwvcD4KICAgIDxkaXYgY2xhc3M9InJpc2siPjxzcGFuIGNsYXNzPSJ0YWcgaGkiPkhJR0g8L3NwYW4+PGRpdj48aDM+Q29uc3RydWN0aW9uIGNvc3QgaW5mbGF0aW9uPC9oMz48cD5GaXhlZC1wcmljZSBjb250cmFjdCBjb3ZlcnMgNzAlIG9mIGhhcmQgY29zdHM7IGEgNSUgY29udGluZ2VuY3kgaXMgY2FycmllZCBvbiB0aGUgcmVtYWluZGVyLjwvcD48L2Rpdj48L2Rpdj4KICAgIDxkaXYgY2xhc3M9InJpc2siPjxzcGFuIGNsYXNzPSJ0YWcgbWQiPk1FRElVTTwvc3Bhbj48ZGl2PjxoMz5TbG93ZXIgbGVhc2UtdXA8L2gzPjxwPlByZS1sZWFzaW5nIGFncmVlbWVudHMgd2l0aCB0d28gYW5jaG9yIGVtcGxveWVycyBjb3ZlciAyMiUgb2YgdW5pdHMgYmVmb3JlIG9wZW5pbmcuPC9wPjwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0icmlzayI+PHNwYW4gY2xhc3M9InRhZyBtZCI+TUVESVVNPC9zcGFuPjxkaXY+PGgzPlJhdGUgZW52aXJvbm1lbnQ8L2gzPjxwPlNlbmlvciBkZWJ0IGlzIDgwJSBoZWRnZWQgZm9yIHRoZSBmaXJzdCAzNiBtb250aHMsIHdpdGggYW4gZXh0ZW5zaW9uIG9wdGlvbiBhdCBwYXIuPC9wPjwvZGl2PjwvZGl2PgogICAgPGRpdiBjbGFzcz0icmlzayI+PHNwYW4gY2xhc3M9InRhZyBsbyI+TE9XPC9zcGFuPjxkaXY+PGgzPlJlZ3VsYXRvcnkgY2hhbmdlPC9oMz48cD5FbnRpdGxlbWVudHMgYXJlIGluIGhhbmQgYW5kIHRoZSB6b25pbmcgY2FwIGFscmVhZHkgd29ya3MgaW4gb3VyIGZhdm91ci48L3A+PC9kaXY+PC9kaXY+CiAgPC9zZWN0aW9uPgogIDxmb290ZXI+UHJlcGFyZWQgd2l0aCBhbiBBSSBhc3Npc3RhbnQgwrcgSGFyYm9yIEdhcmRlbnMgUGhhc2UgSUkgwrcgUTM8L2Zvb3Rlcj4KPC9tYWluPgo8c2NyaXB0PgogIC8vIFdoYXQgQUktZ2VuZXJhdGVkIGJ1bmRsZXMgZG86IGluamVjdCBwcmludCBDU1MgYXQgcnVudGltZS4KICB2YXIgc3QgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCdzdHlsZScpOwogIHN0LnRleHRDb250ZW50ID0gJ0BtZWRpYSBwcmludCB7IGJvZHl7YmFja2dyb3VuZDojZmZmfSAucGFnZS1zZWN0aW9ue2JyZWFrLWJlZm9yZTpwYWdlO2JyZWFrLWFmdGVyOnBhZ2U7Ym94LXNoYWRvdzpub25lO21hcmdpbjowO2JvcmRlci1yYWRpdXM6MH0gLmNvdmVyLXBhZ2V7aGVpZ2h0OjEwMHZofSB9IEBwYWdlIHsgc2l6ZTogQTQ7IG1hcmdpbjogMTJtbTsgfSc7CiAgZG9jdW1lbnQuaGVhZC5hcHBlbmRDaGlsZChzdCk7Cjwvc2NyaXB0Pgo8L2JvZHk+CjwvaHRtbD4K</script>
 <script src="main.js"></script>
-</body>
-</html>
+
+</body></html>

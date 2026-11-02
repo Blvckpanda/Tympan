@@ -1,165 +1,115 @@
-// tympan landing — the cut demo + terminal typing (zero deps)
+
 (function () {
-  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  /* ---- the cut: pages pile in as the doc "scrolls" ---- */
-  var pages = Array.prototype.slice.call(document.querySelectorAll(".stack .page"));
-  var sheetCount = document.getElementById("sheetCount");
-  var note = document.querySelector("[data-count]");
-  var onIdx = -1;
-
-  function showNext() {
-    if (onIdx >= pages.length - 1) return;
-    onIdx++;
-    pages[onIdx].classList.add("is-on");
-    pages[onIdx].style.zIndex = String(pages.length + 10 - onIdx);
-    if (sheetCount) sheetCount.textContent = String(onIdx + 1);
-    if (onIdx < pages.length - 1) setTimeout(showNext, 650);
-  }
-
-  var cut = document.querySelector(".cut");
-  if (cut) {
-    if (reduceMotion) {
-      pages.forEach(function (p) { p.classList.add("is-on"); });
-      if (sheetCount) sheetCount.textContent = String(pages.length);
-    } else if ("IntersectionObserver" in window) {
-      var seen = false;
-      new IntersectionObserver(function (entries) {
-        if (entries.some(function (e) { return e.isIntersecting; }) && !seen) {
-          seen = true;
-          showNext();
-        }
-      }, { threshold: 0.35 }).observe(cut);
-    } else {
-      showNext();
-    }
-  }
-
-  /* ---- terminal typing ---- */
-  var term = document.getElementById("termBody");
-  var script = [
-    "$ npx tympan brief-dark.html --probe \"Harbor Gardens\"",
-    "",
-    "  brief-dark.html  ->  brief-dark.pdf",
-    "  detected 3 section(s) via semantic-children",
-    "    section 1/3 (prelude)   -> sheet 1",
-    "    section 2/3 (body)      -> sheet 2",
-    "    section 3/3 (questions) -> sheet 3",
-    "  verified: probe matched   outline written   0 diagnostics",
-    "  4.1 s  \" 127 KB \"  sha256 3b0f...c91a   [same input, same bytes]"
-  ].join("\n");
-
-  function type() {
-    if (!term) return;
-    var i = 0;
-    if (reduceMotion) { term.textContent = script; return; }
-    (function step() {
-      if (i > script.length) return;
-      term.textContent = script.slice(0, i);
-      i++;
-      var ch = script.charAt(i - 1);
-      setTimeout(step, ch === "\n" ? 260 : 14 + Math.random() * 26);
-    })();
-  }
-
-  var termSec = document.querySelector(".term");
-  if (termSec) {
-    if ("IntersectionObserver" in window) {
-      var typed = false;
-      new IntersectionObserver(function (entries) {
-        if (entries.some(function (e) { return e.isIntersecting; }) && !typed) {
-          typed = true;
-          type();
-        }
-      }, { threshold: 0.3 }).observe(termSec);
-    } else {
-      type();
-    }
-  }
-
-  /* ---- fill duel: drag the sheet-stack comparison ---- */
-  var duel = document.querySelector("[data-duelwrap]");
-  if (duel) {
-    var after = duel.querySelector(".duel--after");
-    var divider = duel.querySelector("[data-divider]");
-    var pos = 0.55;
-
-    function applyFill() {
-      var pct = Math.round(pos * 100);
-      if (after) after.style.clipPath = "inset(0 0 0 " + pct + "%)";
-      if (divider) {
-        divider.style.left = pct + "%";
-        divider.setAttribute("aria-valuenow", String(pct));
-      }
-    }
-    function setFromEvent(ev) {
-      var rect = duel.getBoundingClientRect();
-      var x = (ev.clientX - rect.left) / rect.width;
-      pos = Math.max(0.06, Math.min(0.94, x));
-      applyFill();
-    }
-
-    var dragging = false;
-    duel.addEventListener("pointerdown", function (ev) {
-      dragging = true;
-      if (duel.setPointerCapture) duel.setPointerCapture(ev.pointerId);
-      setFromEvent(ev);
+  /* ---- stage: browser print vs tympan ---- */
+  var stage = $('#stage'), verdict = $('#verdict'), interacted = false, timer = null;
+  var copy = {
+    browser: { n: '6', h: 'pages for 4 sections', t: 'The cover spills a line onto page 2 and the footer ends up alone on page 6. You find that out by flipping through the file.' },
+    tympan:  { n: '4', h: 'pages for 4 sections', t: 'Each section sits on its own page, the footer is on the last one, and the page count is checked against the section count.' }
+  };
+  function setState(s) {
+    stage.dataset.state = s; verdict.dataset.state = s;
+    $$('.seg button').forEach(function (b) {
+      var on = b.dataset.state === s;
+      b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1;
     });
-    duel.addEventListener("pointermove", function (ev) {
-      if (dragging) setFromEvent(ev);
-    });
-    duel.addEventListener("pointerup", function () { dragging = false; });
-    duel.addEventListener("pointercancel", function () { dragging = false; });
-
-    if (divider) {
-      divider.addEventListener("keydown", function (ev) {
-        var step = { ArrowLeft: -0.05, ArrowRight: 0.05 }[ev.key];
-        if (!step) return;
-        ev.preventDefault();
-        ev.stopPropagation();
-        pos = Math.max(0.06, Math.min(0.94, pos + step));
-        applyFill();
-      });
-    }
-    applyFill();
+    $('#row-browser').hidden = s !== 'browser';
+    $('#row-tympan').hidden = s !== 'tympan';
+    $('#v-n').textContent = copy[s].n; $('#v-h').textContent = copy[s].h; $('#v-t').textContent = copy[s].t;
   }
-
-  /* ---- copy the flag ---- */
-  var copyBtn = document.querySelector("[data-copy]");
-  if (copyBtn) {
-    var toast = document.querySelector("[data-toast]");
-    var toastTimer = null;
-    function copied() {
-      copyBtn.classList.add("is-copied");
-      copyBtn.setAttribute("aria-live", "polite");
-      copyBtn.textContent = "copied to clipboard \u2713";
-      if (toast) toast.classList.add("is-on");
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () {
-        copyBtn.classList.remove("is-copied");
-        copyBtn.textContent = "Copy the run \u2014 $ npx tympan deck.html --flow";
-        if (toast) toast.classList.remove("is-on");
-      }, 2600);
-    }
-    copyBtn.addEventListener("click", function () {
-      var text = copyBtn.getAttribute("data-copy");
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(copied, function () { fallback(); });
-      } else {
-        fallback();
-      }
-      function fallback() {
-        var ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand("copy"); copied(); } catch (err) { /* ignore */ }
-        document.body.removeChild(ta);
+  $$('.seg button').forEach(function (b) {
+    b.addEventListener('click', function () { interacted = true; clearTimeout(timer); setState(b.dataset.state); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault(); interacted = true; clearTimeout(timer);
+        var s = b.dataset.state === 'browser' ? 'tympan' : 'browser'; setState(s); $('#tab-' + s).focus();
       }
     });
+  });
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce) timer = setTimeout(function () { if (!interacted) setState('tympan'); }, 3600);
+
+  /* ---- enlarge a page ---- */
+  var lb = $('#lb'), lbImg = $('#lb img'), lastBtn = null;
+  function closeLb() { lb.hidden = true; if (lastBtn) lastBtn.focus(); }
+  $$('[data-zoom]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var im = $('img', b); lbImg.src = im.src; lbImg.alt = im.alt; lastBtn = b; lb.hidden = false; $('#lb-x').focus();
+    });
+  });
+  lb.addEventListener('click', function (e) { if (e.target !== lbImg) closeLb(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !lb.hidden) closeLb(); });
+
+  /* ---- copy buttons ---- */
+  $$('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.parentNode.querySelector('code');
+      var text = code.textContent.replace(/^\$\s*/, '');
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1600); };
+      var fallback = function () {
+        var r = document.createRange(); r.selectNodeContents(code);
+        var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        btn.textContent = 'Press Ctrl+C'; setTimeout(function () { btn.textContent = 'Copy'; }, 2400);
+      };
+      try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+    });
+  });
+
+  /* ---- section counter: same detection ladder as src/detect.js, static DOM ---- */
+  function titleOf(el) {
+    var h = el.querySelector('h1,h2,h3,h4,h5,h6'), raw = null;
+    if (h) { var c = h.cloneNode(true); $$('br', c).forEach(function (b) { b.replaceWith(' '); }); raw = c.textContent; }
+    raw = raw || el.getAttribute('data-label') || el.getAttribute('aria-label') || el.getAttribute('title');
+    return raw ? raw.replace(/\s+/g, ' ').trim().slice(0, 70) : null;
   }
+  function detect(doc) {
+    var n = $$('section.page-section', doc);
+    if (n.length) return { how: 'section.page-section', nodes: n };
+    var attrs = ['data-page', 'data-slide'];
+    for (var i = 0; i < attrs.length; i++) {
+      n = $$('[' + attrs[i] + ']', doc);
+      if (n.length) return { how: '[' + attrs[i] + ']', nodes: n };
+    }
+    var best = null;
+    $$('main, [role="main"], body > div', doc).forEach(function (c) {
+      var kids = Array.prototype.filter.call(c.children, function (k) { return /^(SECTION|ARTICLE)$/.test(k.tagName); });
+      if (kids.length && (!best || kids.length > best.length)) best = kids;
+    });
+    if (best) return { how: 'section / article inside main', nodes: best };
+    return { how: 'whole document', nodes: [doc.body] };
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function render(html, name, isExample) {
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    var r = detect(doc), count = r.nodes.length, whole = r.how === 'whole document';
+    var text = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+    var jsBuilt = whole && doc.querySelectorAll('script').length && text.length < 300;
+    var rows = r.nodes.slice(0, 8).map(function (el, i) {
+      return '<li><span class="k">' + (i + 1) + '/' + count + '</span><span class="v">' + esc(titleOf(el) || el.id || '(untitled)') + '</span></li>';
+    }).join('');
+    var more = count > 8 ? '<li><span class="k"></span><span class="v">and ' + (count - 8) + ' more</span></li>' : '';
+    var out = (isExample ? '<span class="tag-ex">Example: deck.html</span>' : '') +
+      '<div class="big">' + count + '<small>' + (count === 1 ? 'section' : 'sections') + '</small></div>' +
+      '<div class="how">found by: ' + esc(r.how) + '</div>' +
+      (whole ? '' : '<ol>' + rows + more + '</ol>') +
+      (jsBuilt ? '<p class="note warn">This file looks like it builds its content with JavaScript. This page does not run scripts, but tympan does, so its real count can differ. Run the command to see it.</p>'
+               : '<p class="note">tympan also keeps any content above the first section as a cover page. Run <span class="mono">npx tympan ' + esc(name) + '</span> for the verified count.</p>');
+    $('#result').innerHTML = out;
+    $$('.cmd-file').forEach(function (el) { el.textContent = name; });
+  }
+  var dec = function (b) { return new TextDecoder().decode(Uint8Array.from(atob(b), function (c) { return c.charCodeAt(0); })); };
+  render(dec($('#sample').textContent.trim()), 'deck.html', true);
+  function readFile(f) {
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () { render(String(rd.result), f.name.replace(/[^\w.\- ]/g, '_'), false); };
+    rd.readAsText(f);
+  }
+  var drop = $('#drop');
+  $('#file').addEventListener('change', function (e) { readFile(e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { readFile(e.dataTransfer.files[0]); });
 })();
