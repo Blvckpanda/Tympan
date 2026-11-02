@@ -45,8 +45,8 @@ import { measureBlockInPage } from './measure.js';
 import { chooseLayout } from './auto.js';
 import { downscaleImagesInPage, mergeFooter } from './email.js';
 import { armRequestPolicy } from './security.js';
-import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';import { minifyPdf } from './minify.js';
-import { stampPdf } from './stamp.js';
+import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';import { minifyPdf } from './minify.js';import { stampPdf } from './stamp.js';
+import { splitPdf } from './split.js';
 import { buildFlowDocument, printFlow, analyzeFlowPdf, verifyFlow, mapSectionsToPages, flowOutlineEntries } from './flow.js';
 import { inlineLocalAssets } from './assets.js';
 import { estimateTocPages, buildTocHtml } from './toc.js';
@@ -885,6 +885,9 @@ export async function convert(inputPath, raw = {}) {
         const stampResult = options.watermark ? await applyStampTo(outputs.master, options.watermark) : null;
         let minifyResult = null;
         if (options.minify) minifyResult = applyMinifyTo(outputs.master);
+        // Splitting reads the finished, compact master: parts inherit the
+        // stamp's semantics and the minify pass's form.
+        const splitResult = options.split ? await applySplitTo(outputs.master) : null;
         const strandedHeadingPages = pages.filter((p) => p.strandedHeading).map((p) => p.index);
         const blocked = {
           ...audit,
@@ -930,9 +933,9 @@ export async function convert(inputPath, raw = {}) {
             pageNumbers: !!options.pageNumbers,
             keepTogetherBlocks: printedDom.keepTogetherBlocks,
           },
-          verification,
-          minify: minifyResult,
+          verification,          minify: minifyResult,
           stamp: stampResult,
+          split: splitResult,
         };
       }
 
@@ -994,6 +997,8 @@ export async function convert(inputPath, raw = {}) {
         await applyStampTo(outputs.email, options.watermark);
       }
       const minifyResult = options.minify ? applyMinifyTo(outputs.master) : null;
+      // Same rule as flow mode: parts are copies of the finished master.
+      const splitResult = options.split ? await applySplitTo(outputs.master) : null;
       const result = {
         master: outputs.master,
         email: options.email ? outputs.email : null,
@@ -1034,10 +1039,10 @@ export async function convert(inputPath, raw = {}) {
           // break-inside:avoid block cannot split here and nothing is traded
           // away. Flow layout measures this for real.
           keptTogether: true,
-        })),
-        minify: minifyResult,
+        })),        minify: minifyResult,
         stamp: stampResult,
-      };
+        split: splitResult,
+      };
       result.quality = summarizeQuality(result.pages, { targetFill: options.targetFill });
       // Everything the document asked for and did not get, carried with the
       // result so `tympan lint` can name one lost image instead of only
@@ -1094,9 +1099,21 @@ export async function convert(inputPath, raw = {}) {
  * @param {string} file absolute path of the PDF to stamp
  * @param {string} text the watermark text
  * @returns {Promise<{pages: number, text: string}>} what the report carries
- */
-async function applyStampTo(file, text) {
+ */async function applyStampTo(file, text) {
   return stampPdf(file, text);
+}
+
+/**
+ * SPEC §4 Phase 2: split the finished master into per-sheet artifacts.
+ * Runs LAST (after stamp, after minify) so a part is exactly what the
+ * master carries, in the compact form the minify pass produced. Throws on
+ * failure — a split that silently skipped a page would be a report that
+ * undercounts what a reader receives.
+ * @param {string} file absolute path of the master PDF
+ * @returns {Promise<{parts: number, files: string[]}>}
+ */
+async function applySplitTo(file) {
+  return splitPdf(file);
 }
 
 /**

@@ -116,6 +116,8 @@ All notable changes to this project are documented here. The format is based on
   is rejected before the browser launches. Result carries `stamp` (pages
   + text drawn); pdfjs confirms the text is in every page's extractable
   layer, through the e-mail variant and the stamp+minify composition.
+- **`tympan lint --a11y` — the accessibility half of lint (SPEC §4's Phase 2
+  item).** Opt-in: the audit costs a second body walk on the load visit, so
   it reads `auditA11y` on the conversion options and runs only when asked.
   Findings from `src/a11y.js` (unit-testable pure rules + one in-page
   collector): `a11y-html-lang` (WCAG 3.1.1), `a11y-img-alt` (1.1.1 — a
@@ -128,6 +130,18 @@ All notable changes to this project are documented here. The format is based on
   fail a run by default; `--strict` promotes them like lint's own. The
   rules run on the SAME source audit trip and carry capped lists with real
   totals, so a 400-image document cannot flood a log.
+
+- **`--split` — the split half of SPEC §4's Phase 2 "merge/split/compose"
+  item.** The finished master is rewritten as one artifact per sheet, written
+  beside it in page order (`<out>-p01.pdf`, ...) in a stable, digit-count-padded
+  naming scheme. Parts are copied with pdf-lib's `copyPages` (resources ride
+  along byte-identical), inherit the document's info fields, and take the
+  deterministic metadata tail from `finalize.js` (fixed dates, same Producer).
+  The pass runs LAST — after stamp and minify — so a part is exactly what the
+  reader gets from the master, in the compact form the minify pass produced,
+  and re-splitting the same master moves not a byte. Result carries `split`
+  (parts + files); pdfjs confirms each part holds exactly one page — its own,
+  never the next one's.
 
 ### Security
 - **`tympan ui` is gated: a per-session token on every route, a loopback Host

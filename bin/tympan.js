@@ -71,6 +71,10 @@ Options:
                        45-degree, grey 15% bold text sized from the page
                        itself. Semantics, not plumbing: stamping both
                        artifacts, a failure aborts the conversion.
+  --split              Write the finished document as one artifact per
+                       sheet, beside the master: <out>-p01.pdf, -p02, ...
+                       The master stays whole; parts carry the document's
+                       own info fields and the deterministic metadata tail.
   --title <t>          PDF metadata title (default: source <title>)
   --author <a>         PDF metadata author
   --subject <s>        PDF metadata subject
@@ -193,10 +197,10 @@ const SPEC = {
     '--diff',
     '--strict',
     '--flow',
-    '--page-numbers',
-    '--toc',
+    '--page-numbers',    '--toc',
     '--a11y',
     '--minify',
+    '--split',
     '-h',
     '--help',
   ],
@@ -267,9 +271,10 @@ function convertOptions() {
     toc: args.has('--toc'),
     // lint's accessibility half: gathered on the load visit when on.
     auditA11y: args.has('--a11y'),    // The size pass (SPEC Phase 2): same document, smaller file.
-    minify: args.has('--minify'),
-    // Stamping (SPEC Phase 2): semantics the document must carry.
-    watermark: args.value('--watermark'),
+    minify: args.has('--minify'),    // Stamping (SPEC Phase 2): semantics the document must carry.
+    watermark: args.value('--watermark'),
+    // Splitting (SPEC Phase 2): the master, as one artifact per sheet.
+    split: args.has('--split'),
   };
   // A preset sets documented defaults; explicit flags always win over them.
   // Applied FIRST so later reads of opts read the folded values.

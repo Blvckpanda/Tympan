@@ -38,6 +38,8 @@ export interface ConvertOptions {
   minify?: boolean;
   /** Stamp this text as a watermark across every page (SPEC §4 Phase 2). */
   watermark?: string;
+  /** Write the finished document as one artifact per sheet (SPEC §4 Phase 2). */
+  split?: boolean;
   /** PDF metadata title (default: the source document's <title>). */
   title?: string;
   /** PDF metadata author. */
@@ -285,6 +287,8 @@ export interface ConvertResult {
   minify?: MinifyStats | null;
   /** Set with --watermark: pages stamped and the text actually drawn. */
   stamp?: { pages: number; text: string } | null;
+  /** Set with --split: parts written beside the master, in page order. */
+  split?: { parts: number; files: string[] } | null;
   /** Pagination strategy used for this output. */
   layout: 'section' | 'flow';
   /** Per-page quality measurements, index-aligned with the final PDF. */
@@ -299,6 +303,9 @@ export declare function convert(inputPath: string, options?: ConvertOptions): Pr
 
 /** Stamp every page of a produced PDF with centred rotated watermark text, in place. */
 export declare function stampPdf(file: string, text: string): Promise<{ pages: number; text: string }>;
+
+/** Write one artifact per page of a produced PDF beside the master, in page order. */
+export declare function splitPdf(file: string, opts?: { dir?: string }): Promise<{ parts: number; files: string[] }>;
 
 export interface BatchEntry {
   input: string;

@@ -31,6 +31,7 @@ export { auditAccessibilityInPage, a11yFindings, CONTRAST_NORMAL, CONTRAST_LARGE
 export { auditPdfBytes, classifyStream, formatBytesReport, BYTE_KINDS } from './bytes.js';
 export { minifyPdf, OBJSTM_MAX_OBJECTS, OBJSTM_MAX_BYTES, MINIFY_LEVEL } from './minify.js';
 export { stampPdf, placementFor, fontSizeFor, STAMP_OPACITY } from './stamp.js';
+export { splitPdf } from './split.js';
 export { findChromium, launchOptions } from './browser.js';
 export { downscaleImagesInPage, mergeFooter } from './email.js';
 export { verifyOutputs, extractPages, probeRegex } from './verify.js';

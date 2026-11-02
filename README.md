@@ -393,6 +393,22 @@ tympan invoice.html --watermark DRAFT -o out.pdf
 tympan "docs/*.html" --watermark DRAFT -o dist/   # one warm browser, every file
 ```
 
+## Split: `--split`
+
+The half of the merge item merge never covered: the finished document, as
+one artifact per sheet. Parts are written beside the master
+(`<out>-p01.pdf`, `-p02`, ...), read from it AFTER stamping and minifying,
+and are self-describing: each inherits the document's info fields and takes
+the deterministic metadata tail. Copying is page-order and byte-preserving
+--- every part renders and extracts on its own, and re-splitting the same
+master moves not a byte.
+
+```bash
+tympan book.html --split -o out.pdf           # out-p01.pdf ... one per sheet
+tympan book.html --split --minify -o out.pdf  # parts built from the compact master
+tympan "docs/*.html" --split -o dist/         # one warm browser, every file
+```
+
 ## Live preview: `tympan preview`
 
 Printing is the only way to be *certain* about a page break — the printer closes
