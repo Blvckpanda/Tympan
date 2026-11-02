@@ -36,6 +36,8 @@ export interface ConvertOptions {
   outline?: boolean;
   /** Shrink the file without touching the document (SPEC §4 Phase 2). */
   minify?: boolean;
+  /** Stamp this text as a watermark across every page (SPEC §4 Phase 2). */
+  watermark?: string;
   /** PDF metadata title (default: the source document's <title>). */
   title?: string;
   /** PDF metadata author. */
@@ -281,6 +283,8 @@ export interface ConvertResult {
   outline?: { entries: number; mappedBy: 'text-layer' | 'section-order' } | null;
   /** Set with --minify: the size pass's byte accounting (or a refusal). */
   minify?: MinifyStats | null;
+  /** Set with --watermark: pages stamped and the text actually drawn. */
+  stamp?: { pages: number; text: string } | null;
   /** Pagination strategy used for this output. */
   layout: 'section' | 'flow';
   /** Per-page quality measurements, index-aligned with the final PDF. */
@@ -292,6 +296,9 @@ export interface ConvertResult {
 }
 
 export declare function convert(inputPath: string, options?: ConvertOptions): Promise<ConvertResult>;
+
+/** Stamp every page of a produced PDF with centred rotated watermark text, in place. */
+export declare function stampPdf(file: string, text: string): Promise<{ pages: number; text: string }>;
 
 export interface BatchEntry {
   input: string;

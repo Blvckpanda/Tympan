@@ -67,6 +67,10 @@ Options:
                        content and text are preserved; encrypted or
                        incrementally-updated PDFs are refused. Measure it
                        with 'tympan bytes'.
+  --watermark <t>      Stamp text across every page (e.g. DRAFT): centred,
+                       45-degree, grey 15% bold text sized from the page
+                       itself. Semantics, not plumbing: stamping both
+                       artifacts, a failure aborts the conversion.
   --title <t>          PDF metadata title (default: source <title>)
   --author <a>         PDF metadata author
   --subject <s>        PDF metadata subject
@@ -172,9 +176,9 @@ const SPEC = {
     '--port',
     '--concurrency',
     '--layout',
-    '--fill',
-    '--page-footer',
+    '--fill',    '--page-footer',
     '--preset',
+    '--watermark',
   ],
   repeatable: ['--allow-net'],
   // (boolean list is below; --toc joins it)
@@ -262,9 +266,10 @@ function convertOptions() {
     pageNumbers: args.has('--page-numbers'),
     toc: args.has('--toc'),
     // lint's accessibility half: gathered on the load visit when on.
-    auditA11y: args.has('--a11y'),
-    // The size pass (SPEC Phase 2): same document, smaller file.
+    auditA11y: args.has('--a11y'),    // The size pass (SPEC Phase 2): same document, smaller file.
     minify: args.has('--minify'),
+    // Stamping (SPEC Phase 2): semantics the document must carry.
+    watermark: args.value('--watermark'),
   };
   // A preset sets documented defaults; explicit flags always win over them.
   // Applied FIRST so later reads of opts read the folded values.

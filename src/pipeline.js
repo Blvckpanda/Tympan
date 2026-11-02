@@ -45,8 +45,8 @@ import { measureBlockInPage } from './measure.js';
 import { chooseLayout } from './auto.js';
 import { downscaleImagesInPage, mergeFooter } from './email.js';
 import { armRequestPolicy } from './security.js';
-import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';
-import { minifyPdf } from './minify.js';
+import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';import { minifyPdf } from './minify.js';
+import { stampPdf } from './stamp.js';
 import { buildFlowDocument, printFlow, analyzeFlowPdf, verifyFlow, mapSectionsToPages, flowOutlineEntries } from './flow.js';
 import { inlineLocalAssets } from './assets.js';
 import { estimateTocPages, buildTocHtml } from './toc.js';
@@ -634,9 +634,14 @@ export async function convert(inputPath, raw = {}) {
     throw new Error(`unknown preset "${raw.preset}" (known presets: ${PRESET_NAMES.join(', ')})`);
   }
   const { onProgress } = options;
-  const isUrl = /^https?:\/\//i.test(inputPath);
-  if (!isUrl && !fs.existsSync(inputPath)) {
+  const isUrl = /^https?:\/\//i.test(inputPath);  if (!isUrl && !fs.existsSync(inputPath)) {
     throw new Error(`Input not found: ${inputPath}`);
+  }
+  // A watermark is semantics, not plumbing: a blank one cannot be silenced
+  // later, so looking at it costs nothing here and everything if we wait
+  // until after the browser has printed.
+  if (options.watermark != null && String(options.watermark).trim() === '') {
+    throw new Error('watermark: text is required (non-empty)');
   }
   // Fail fast on bad output locations BEFORE launching the browser / doing
   // minutes of print work (a careless -o typo should not cost a full run).
@@ -875,7 +880,9 @@ export async function convert(inputPath, raw = {}) {
         // SPEC §4 Phase 2 size pass: rewrite the file (objstm + xref stream),
         // never the document. Runs before the size is measured, so the
         // verification report carries the bytes a reader actually gets. A
-        // refusal (encrypted/incremental) degrades to the unminified file.
+        // refusal (encrypted/incremental) degrades to the unminified file.        // SPEC §4 Phase 2 stamping: semantics first, size pass second — the
+        // stamp lands on the file the minify pass will then compact. A stamp        // failure is a loud failure (unlike a minify refusal): an unstamped        // file that looks watermarked is worse than an error.
+        const stampResult = options.watermark ? await applyStampTo(outputs.master, options.watermark) : null;
         let minifyResult = null;
         if (options.minify) minifyResult = applyMinifyTo(outputs.master);
         const strandedHeadingPages = pages.filter((p) => p.strandedHeading).map((p) => p.index);
@@ -925,6 +932,7 @@ export async function convert(inputPath, raw = {}) {
           },
           verification,
           minify: minifyResult,
+          stamp: stampResult,
         };
       }
 
@@ -979,7 +987,12 @@ export async function convert(inputPath, raw = {}) {
         emailImgStats = imgStats;
       }
       fs.copyFileSync(master, outputs.master);
-      if (email) fs.copyFileSync(email, outputs.email);
+      if (email) fs.copyFileSync(email, outputs.email);      // Stamping runs before the size pass for the same reason as above, and
+      // both artifacts carry it: the email variant is this document too.
+      const stampResult = options.watermark ? await applyStampTo(outputs.master, options.watermark) : null;
+      if (options.watermark && email) {
+        await applyStampTo(outputs.email, options.watermark);
+      }
       const minifyResult = options.minify ? applyMinifyTo(outputs.master) : null;
       const result = {
         master: outputs.master,
@@ -1023,6 +1036,7 @@ export async function convert(inputPath, raw = {}) {
           keptTogether: true,
         })),
         minify: minifyResult,
+        stamp: stampResult,
       };
       result.quality = summarizeQuality(result.pages, { targetFill: options.targetFill });
       // Everything the document asked for and did not get, carried with the
@@ -1062,8 +1076,7 @@ export async function convert(inputPath, raw = {}) {
  * conversion that already succeeded.
  * @param {string} file absolute path of the master PDF
  * @returns {object} minify stats, or { refused: string }
- */
-function applyMinifyTo(file) {
+ */function applyMinifyTo(file) {
   try {
     const src = fs.readFileSync(file);
     const { pdf, stats } = minifyPdf(src);
@@ -1072,6 +1085,18 @@ function applyMinifyTo(file) {
   } catch (e) {
     return { refused: (e && e.message) || String(e) };
   }
+}
+
+/**
+ * SPEC §4 Phase 2: stamp the watermark (Semantics, size-neutral) onto a
+ * produced file, in place. Throws on failure — a conversion that LOOKS
+ * watermarked but is not must never exist.
+ * @param {string} file absolute path of the PDF to stamp
+ * @param {string} text the watermark text
+ * @returns {Promise<{pages: number, text: string}>} what the report carries
+ */
+async function applyStampTo(file, text) {
+  return stampPdf(file, text);
 }
 
 /**

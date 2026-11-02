@@ -103,8 +103,19 @@ All notable changes to this project are documented here. The format is based on
   plumbing (ObjStm + XRef streams) as `other` so a minified report never
   reads as "more content". Result carries `minify` stats; a refusal
   degrades to the unminified file rather than failing a good conversion.
-- **`tympan lint --a11y` — the accessibility half of lint (SPEC §4's Phase 2
-  item).** Opt-in: the audit costs a second body walk on the load visit, so
+- **`--watermark` — Stamping, the semantics half of SPEC §4's Phase 2
+  "watermark, stamping" item.** The pass draws centred, 45-degree, bold
+  grey 15% text across EVERY page of the finished document — placement and
+  font size are pure functions of page size and the font's own advance
+  widths, stamped on both artifacts (master and email variant) with
+  geometry that is identical everywhere and produces deterministic bytes
+  (pdf-lib re-serializes with fixed metadata, `useObjectStreams: false` so
+  the minify pass that runs right after works on the file form it is
+  proven on). Semantics, not plumbing: a stamping failure aborts the
+  conversion loudly instead of degrading silently, and a blank watermark
+  is rejected before the browser launches. Result carries `stamp` (pages
+  + text drawn); pdfjs confirms the text is in every page's extractable
+  layer, through the e-mail variant and the stamp+minify composition.
   it reads `auditA11y` on the conversion options and runs only when asked.
   Findings from `src/a11y.js` (unit-testable pure rules + one in-page
   collector): `a11y-html-lang` (WCAG 3.1.1), `a11y-img-alt` (1.1.1 — a

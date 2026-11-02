@@ -374,6 +374,25 @@ tympan bytes article.html --flow --minify  # audit the rewritten bytes
 tympan 'docs/*.html' --minify -o dist/     # whole corpus, one warm browser
 ```
 
+## Watermark: `--watermark`
+
+Stamping is document semantics, so the pass draws on the finished document
+what the reader must see: centred, 45-degree, bold grey text at 15% opacity,
+sized from each page's own diagonal - one pass over every page, both
+artifacts (master and email variant), the same geometry everywhere. The
+placement and font size are pure functions of page size and the font's own
+advance widths: no dates, no randomness, no locale - and the same file
+stamped the same way yields the same bytes.
+
+A failing stamp is a failing conversion (an unstamped document that looks
+watermarked is worse than an error); a blank watermark is rejected up front,
+before a browser is ever launched.
+
+```bash
+tympan invoice.html --watermark DRAFT -o out.pdf
+tympan "docs/*.html" --watermark DRAFT -o dist/   # one warm browser, every file
+```
+
 ## Live preview: `tympan preview`
 
 Printing is the only way to be *certain* about a page break — the printer closes
