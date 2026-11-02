@@ -46,6 +46,7 @@ import { chooseLayout } from './auto.js';
 import { downscaleImagesInPage, mergeFooter } from './email.js';
 import { armRequestPolicy } from './security.js';
 import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';
+import { minifyPdf } from './minify.js';
 import { buildFlowDocument, printFlow, analyzeFlowPdf, verifyFlow, mapSectionsToPages, flowOutlineEntries } from './flow.js';
 import { inlineLocalAssets } from './assets.js';
 import { estimateTocPages, buildTocHtml } from './toc.js';
@@ -871,6 +872,12 @@ export async function convert(inputPath, raw = {}) {
         const finalPath = path.join(workdir, 'flow-final.pdf');
         await finalizePdf(rawUsed, finalPath, { ...docOpts, outline: outlineEntries });
         fs.copyFileSync(finalPath, outputs.master);
+        // SPEC §4 Phase 2 size pass: rewrite the file (objstm + xref stream),
+        // never the document. Runs before the size is measured, so the
+        // verification report carries the bytes a reader actually gets. A
+        // refusal (encrypted/incremental) degrades to the unminified file.
+        let minifyResult = null;
+        if (options.minify) minifyResult = applyMinifyTo(outputs.master);
         const strandedHeadingPages = pages.filter((p) => p.strandedHeading).map((p) => p.index);
         const blocked = {
           ...audit,
@@ -917,6 +924,7 @@ export async function convert(inputPath, raw = {}) {
             keepTogetherBlocks: printedDom.keepTogetherBlocks,
           },
           verification,
+          minify: minifyResult,
         };
       }
 
@@ -972,6 +980,7 @@ export async function convert(inputPath, raw = {}) {
       }
       fs.copyFileSync(master, outputs.master);
       if (email) fs.copyFileSync(email, outputs.email);
+      const minifyResult = options.minify ? applyMinifyTo(outputs.master) : null;
       const result = {
         master: outputs.master,
         email: options.email ? outputs.email : null,
@@ -1013,6 +1022,7 @@ export async function convert(inputPath, raw = {}) {
           // away. Flow layout measures this for real.
           keptTogether: true,
         })),
+        minify: minifyResult,
       };
       result.quality = summarizeQuality(result.pages, { targetFill: options.targetFill });
       // Everything the document asked for and did not get, carried with the
@@ -1041,6 +1051,26 @@ export async function convert(inputPath, raw = {}) {
     }
   } finally {
     fs.rmSync(workdir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * SPEC §4 Phase 2: rewrite a produced master in place via minifyPdf — same
+ * document, deflated plumbing (object streams + one xref stream). Returns
+ * the pass stats; on refusal returns { refused: reason } and leaves the
+ * file untouched, because a size pass must never be able to break a
+ * conversion that already succeeded.
+ * @param {string} file absolute path of the master PDF
+ * @returns {object} minify stats, or { refused: string }
+ */
+function applyMinifyTo(file) {
+  try {
+    const src = fs.readFileSync(file);
+    const { pdf, stats } = minifyPdf(src);
+    fs.writeFileSync(file, pdf);
+    return stats;
+  } catch (e) {
+    return { refused: (e && e.message) || String(e) };
   }
 }
 

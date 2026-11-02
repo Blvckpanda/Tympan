@@ -34,6 +34,8 @@ export interface ConvertOptions {
   teaser?: number;
   /** Add a PDF outline (bookmarks panel) with one entry per section. */
   outline?: boolean;
+  /** Shrink the file without touching the document (SPEC §4 Phase 2). */
+  minify?: boolean;
   /** PDF metadata title (default: the source document's <title>). */
   title?: string;
   /** PDF metadata author. */
@@ -277,6 +279,8 @@ export interface ConvertResult {
   fillPolicy?: { policy: string; scaleApplied: number; candidates: number[]; attempts: Array<{ scale: number; pages: number }> } | null;
   /** Set with --outline: how the outline destinations were mapped. */
   outline?: { entries: number; mappedBy: 'text-layer' | 'section-order' } | null;
+  /** Set with --minify: the size pass's byte accounting (or a refusal). */
+  minify?: MinifyStats | null;
   /** Pagination strategy used for this output. */
   layout: 'section' | 'flow';
   /** Per-page quality measurements, index-aligned with the final PDF. */
@@ -464,6 +468,28 @@ export interface ByteKindRollup {
 }
 
 /** Where in the produced PDF the bytes went (pure; no decompression). */
+/** Accounting from the --minify size pass (same document, smaller file). */
+export interface MinifyStats {
+  /** Bytes of the input PDF. */
+  bytesBefore: number;
+  /** Bytes of the rewritten PDF. */
+  bytesAfter: number;
+  /** Dictionaries packed into object streams. */
+  objectsPacked: number;
+  /** /Type /ObjStm streams written. */
+  objectStreams: number;
+  /** Streams that lost an unfiltered state and gained /FlateDecode. */
+  streamsRecompressed: number;
+  /** Their on-disk bytes before and after recompression. */
+  streamBytesBefore: number;
+  streamBytesAfter: number;
+}
+
+export declare const OBJSTM_MAX_OBJECTS: number;
+export declare const OBJSTM_MAX_BYTES: number;
+export declare const MINIFY_LEVEL: number;
+export declare function minifyPdf(src: Buffer | Uint8Array): { pdf: Buffer; stats: MinifyStats };
+
 export interface ByteAudit {
   totalBytes: number;
   byKind: Record<string, ByteKindRollup>;

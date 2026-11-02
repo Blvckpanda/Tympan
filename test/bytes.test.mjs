@@ -54,6 +54,11 @@ test('bytes: classifyStream reads the dictionary, rule-ordered', () => {
   assert.equal(classifyStream('/Filter/FlateDecode'), 'content');
   // A dictionary NAME containing the word triggers nothing: it is names-only.
   assert.equal(classifyStream('/XRefStreamDontCountMe/FormObjects'), 'content');
+  // PDF 1.5 plumbing — the cross-reference stream and object streams — is
+  // file bookkeeping, not payload: bucketed as 'other', never as content
+  // (a --minify output would otherwise read as “more content”).
+  assert.equal(classifyStream('/Type/XRef/W [1 4 2]'), 'other');
+  assert.equal(classifyStream('/Type/ObjStm/N 17/First 119'), 'other');
 });
 
 test('bytes: the fixture audit buckets every stream and ties out', () => {

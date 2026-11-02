@@ -87,6 +87,22 @@ All notable changes to this project are documented here. The format is based on
   size reduction vs baseline, and this is the baseline instrument (first
   measured call: article-medium 80.2 KB → 82% fonts, the glyph-subset story
   `--flow` already wins 3.2x on).
+- **`--minify` — the file-rewrite size pass SPEC §4 Phase 2 names.** Same
+  document, fewer bytes: dictionaries pack into deterministic compressed
+  object streams (32 objects / 4096-byte batches), the whole xref becomes
+  one compressed `/Type /XRef` stream (PDF 1.5, `/W [1 4 2]`, contiguous
+  range), unfiltered streams gain `/FlateDecode` (level 9; `/Length1`
+  untouched — it describes the font program, not the stream), and everything
+  else is copied verbatim with its original object number — no renumbering,
+  ever. Integrity is asserted before writing (every `/N G R` must resolve,
+  otherwise the pass refuses); encrypted and incrementally-updated files
+  are refused loudly. Deterministic byte-for-byte. Measured with the bytes
+  instrument on the prose corpus (article-medium, section mode): 82,148 →
+  76,461 bytes (7%) with pdf-lib page count and pdfjs text extraction
+  byte-identical on the rewritten file. `tympan bytes` buckets the new
+  plumbing (ObjStm + XRef streams) as `other` so a minified report never
+  reads as "more content". Result carries `minify` stats; a refusal
+  degrades to the unminified file rather than failing a good conversion.
 - **`tympan lint --a11y` — the accessibility half of lint (SPEC §4's Phase 2
   item).** Opt-in: the audit costs a second body walk on the load visit, so
   it reads `auditA11y` on the conversion options and runs only when asked.

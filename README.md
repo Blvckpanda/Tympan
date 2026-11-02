@@ -345,7 +345,34 @@ shading resources), **metadata**, **other**, and **structure** (xref,
 dictionaries, trailer — every scanned byte ties out). It never decompresses:
 sizes are the bytes each object occupies on disk, which is exactly what an
 optimization shrinks. It names the share and the largest objects — it does not
-judge; a photo deck spending 90% on images is a photo deck.
+judge; a photo deck spending 90% on images is a photo deck. On PDF 1.5
+files the plumbing itself — the cross-reference stream and object streams
+(`--minify`'s output) — buckets as **other**, so a rewritten file never
+reads as "more content".
+
+## Smaller file: `--minify`
+
+Measurement pointed at one honest lever: Chromium's output is already flate
+where it is big (fonts, images), so the pass rewrites the FILE, never the
+document - dictionaries pack into compressed object streams, the xref
+becomes one compressed `/Type /XRef` stream, unfiltered streams gain
+`/FlateDecode`, and everything else is copied byte for byte with its
+original object number. Object numbers, pages, painted content and
+extractable text are all preserved; encrypted and incrementally-updated
+PDFs are refused loudly. Deterministic by construction: the same input
+always yields the same bytes.
+
+Measured on the prose corpus (`tympan bytes` before/after; article-medium,
+section mode): 82,148 -> 76,461 bytes, a 7% cut on a document where 82%
+of the weight is font programs the pass does not touch - the plumbing it
+does touch is most of what remains. Pair the flag with `tympan bytes` so
+the claim stays a measurement:
+
+```bash
+tympan article.html --minify -o out.pdf    # same document, smaller file
+tympan bytes article.html --flow --minify  # audit the rewritten bytes
+tympan 'docs/*.html' --minify -o dist/     # whole corpus, one warm browser
+```
 
 ## Live preview: `tympan preview`
 

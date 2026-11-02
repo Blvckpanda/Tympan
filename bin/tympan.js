@@ -60,6 +60,13 @@ Options:
                        bundle of defaults; explicit flags always win
   --outline            Add PDF bookmarks (one per section; section mode at
                        print time, flow mode mapped from the text layer)
+  --minify             Shrink the file without touching the document:
+                       packs dictionaries into object streams, replaces the
+                       xref with one compressed /Type /XRef stream and
+                       defeats any unfiltered stream. Numbers, pages,
+                       content and text are preserved; encrypted or
+                       incrementally-updated PDFs are refused. Measure it
+                       with 'tympan bytes'.
   --title <t>          PDF metadata title (default: source <title>)
   --author <a>         PDF metadata author
   --subject <s>        PDF metadata subject
@@ -185,6 +192,7 @@ const SPEC = {
     '--page-numbers',
     '--toc',
     '--a11y',
+    '--minify',
     '-h',
     '--help',
   ],
@@ -255,6 +263,8 @@ function convertOptions() {
     toc: args.has('--toc'),
     // lint's accessibility half: gathered on the load visit when on.
     auditA11y: args.has('--a11y'),
+    // The size pass (SPEC Phase 2): same document, smaller file.
+    minify: args.has('--minify'),
   };
   // A preset sets documented defaults; explicit flags always win over them.
   // Applied FIRST so later reads of opts read the folded values.

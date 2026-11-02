@@ -43,9 +43,12 @@ const EXAMPLE_CAP = 3;
  *
  * Rule-ordered, names-only: /Subtype /Image wins (an SMask-carrying image
  * still says /Image); a font program declares itself (/FontFile2 for
- * TrueType, /Length1 on Type1); /Type /Metadata is metadata; an XObject
- * Form (or a bare /XObject — some paint resource) is a form; everything
- * else is a content stream a page's /Contents points at.
+ * TrueType, /Length1 on Type1); /Type /Metadata is metadata; the PDF 1.5
+ * file-level plumbing — the xref stream and object streams — is plumbing,
+ * not document payload, so it buckets as 'other' rather than masquerading
+ * as content a page paints with; an XObject Form (or a bare /XObject —
+ * some paint resource) is a form; everything else is a content stream a
+ * page's /Contents points at.
  * @param {string} dict the object dictionary (text between `obj` and `stream`)
  * @returns {string} one of BYTE_KINDS
  */
@@ -53,6 +56,8 @@ export function classifyStream(dict) {
   if (/\/Subtype\s*\/Image\b/.test(dict)) return 'image';
   if (/\/FontFile\b/.test(dict) || /\/Length1\b/.test(dict)) return 'font';
   if (/\/Type\s*\/Metadata\b/.test(dict)) return 'metadata';
+  if (/\/Type\s*\/XRef\b/.test(dict)) return 'other'; // /Type /XRef — the cross-reference stream
+  if (/\/Type\s*\/ObjStm\b/.test(dict)) return 'other'; // /Type /ObjStm — packed dictionaries
   if (/\/Subtype\s*\/Form\b/.test(dict)) return 'form';
   // A bare /XObject carries no /Subtype — bucket with forms.
   if (/\/Type\s*\/XObject\b/.test(dict)) return 'form';
