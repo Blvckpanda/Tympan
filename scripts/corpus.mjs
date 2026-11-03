@@ -296,8 +296,9 @@ export function renderMarkdown({ meta, totals, results, groups, times, appendix 
   lines.push('  synthetic sheets is.');
   lines.push('- **Render time is one machine, warm browser, sequential.** It compares releases measured the');
   lines.push('  same way; it is not a throughput claim (a cold start pays Chromium launch once).');
-  lines.push('- **Section layout only.** Flow layout does not exist yet; when it does, this file gets a');
-  lines.push('  second column and the delta between the two.');
+  lines.push('- **Section layout here.** The tables above are section mode, kept comparable across');
+  lines.push('  releases; flow layout exists (`--flow`), and the appendix is its measured A/B');
+  lines.push('  against this mode.');
   if (appendix && String(appendix).trim()) {
     lines.push('');
     lines.push(String(appendix).trim());
