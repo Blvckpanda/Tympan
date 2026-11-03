@@ -136,12 +136,12 @@ deck.pdf: <span class="ok">4/4 pages</span>
 </section>
 
 <section class="band wrap" aria-labelledby="next-h" style="padding-top:0">
-  <p class="eyebrow">In development</p>
-  <h2 id="next-h">Not in 0.7.0 yet.</h2>
-  <p class="lede">Slide decks fit one section per page. Long prose does not, because a short section cannot fill a sheet. These are being built for that case.</p>
+  <p class="eyebrow">Shipped</p>
+  <h2 id="next-h">All in 0.8.0.</h2>
+  <p class="lede">Slide decks fit one section per page. Long prose does not, because a short section cannot fill a sheet. Everything this case needed has now shipped.</p>
   <div class="next">
     <div><code>--flow</code><p>Let Chromium paginate a whole prose document instead of one section per sheet, so pages fill.</p></div>
-    <div><code>tympan lint</code><p>Named findings for a bad-looking PDF, such as a sparse page or an image that never loaded.</p></div>
+    <div><code>tympan lint</code><p>Named findings for a bad-looking PDF, such as a sparse page or an image that never loaded; <code>--a11y</code> appraises the source the same way.</p></div>
     <div><code>tympan preview</code><p>One sheet per detected section, shown before you convert, with how much of the sheet it fills.</p></div>
     <div><code>tympan test</code><p>Pixel fingerprints for every page, so a dropped background or a lost figure fails a test.</p></div>
   </div>
