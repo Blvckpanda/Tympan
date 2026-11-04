@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `--pdfa`, with `--flow`: PDF/A-2b-shaped archive output, carried by real
+  data and zero new dependencies. The catalog gets a GTS_PDFA1 OutputIntent
+  bound to the 456-byte CC0 sRGB v2 characterization embedded verbatim from
+  `assets/icc/sRGB-v2-micro.icc` (provenance and checksum in its README),
+  and the deterministic XMP pairs `pdfaid:part 2 / conformance B` with the
+  fixed dates and producer. Measured, not asserted: fully compliant under
+  veraPDF 1.30.3 PDF/A-2b on both artifacts tried (144 of 144 rules, 1350 of
+  1350 checks; 144 of 144 rules, 1059 of 1059 checks). One measured
+  constraint shapes the surface: this validator build's PDF/A-2 XMP model
+  rejects the pdfuaid identification schema even when declared the way its
+  own metadata fixer declares it, so one packet carries one claim — a
+  `--pdfa` packet has no pdfuaid entry, and `--tagged --pdfa` is refused at
+  flag level with the reason in SPEC §6.
 - `--tagged`, with `--flow`: the tagged, standards-shaped print. One print per
   document is what lets the engine's structure tag tree (`/StructTreeRoot`,
   marked content, real heading/list/link semantics) survive whole, so the

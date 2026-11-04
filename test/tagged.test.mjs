@@ -42,12 +42,15 @@ test('tagged flow output carries the tail: viewer prefs, /Lang, UA id, fixed XMP
   });
   assert.equal(r.layout, 'flow');
   assert.deepEqual(r.tagged, { applied: true, lang: 'en-US' });
+  assert.equal(r.pdfa, null);
 
   const facts = inspectTagged(fs.readFileSync(out('tagged.pdf')));
   assert.equal(facts.structTreeRoot, true, 'the engine wrote a structure tree on the single print');
   assert.equal(facts.markInfo, true);
   assert.equal(facts.displayDocTitle, true, 'the tail set ViewerPreferences /DisplayDocTitle');
   assert.equal(facts.lang, 'en-US', '/Lang came from the page html lang');
+  assert.equal(facts.pdfaid, null, 'a document never claims PDF/A because --tagged ran');
+  assert.equal(facts.outputIntent, false, 'no OutputIntent without --pdfa');
   assert.equal(facts.uaId, PDF_UA_VERSION, 'the XMP carries the PDF/UA identifier (pdfuaid:part)');
   assert.match(String(facts.xmpProducer), /^tympan \d+\.\d+\.\d+$/);
 
@@ -68,6 +71,26 @@ test('tagged flow output carries the tail: viewer prefs, /Lang, UA id, fixed XMP
   }
 });
 
+test('pdfa-only output binds a measured sRGB OutputIntent and claims PDF/A-2b — and only then', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
+  const r = await convert(fixture('tagged.html'), {
+    out: out('pdfa.pdf'),
+    flow: true,
+    pdfa: true,
+    title: 'Tagged output',
+  });
+  assert.deepEqual(r.pdfa, { applied: true, profile: 'sRGB', part: '2', conformance: 'B' });
+  const facts = inspectTagged(fs.readFileSync(out('pdfa.pdf')));
+  assert.equal(facts.outputIntent, true, 'the catalog carries a GTS_PDFA1 OutputIntent');
+  assert.equal(facts.pdfaid, '2', 'the XMP identifies PDF/A part 2');
+  assert.equal(facts.pdfaConformance, 'B');
+  // Measured policy (veraPDF 1.30.3 — see the module doc): a PDF/A packet
+  // carries ONLY predefined-schema properties, so the pdfuaid entry is
+  // absent, and no identifier is claimed here.
+  assert.equal(facts.uaId, null, 'the pdfa packet carries no pdfuaid property');
+});
+
+
 test('two same-input tagged runs are byte-identical (the tail owns the dates)', async (t) => {
   if (!findChromium()) return t.skip('Chromium not available');
   await convert(fixture('tagged.html'), { out: out('t1.pdf'), flow: true, tagged: true });
@@ -82,6 +105,8 @@ test('untagged flow output stays untagged — no tail, no tree, no UA id', async
   const facts = inspectTagged(fs.readFileSync(out('plain.pdf')));
   assert.equal(facts.structTreeRoot, false);
   assert.equal(facts.uaId, null);
+  assert.equal(facts.pdfaid, null);
+  assert.equal(facts.outputIntent, false);
   // At this engine pin the untagged print writes its own /ViewerPreferences
   // with DisplayDocTitle — an engine behavior, not the tail's: not asserted
   // here either way, so the pin can change it without this test lying.
@@ -92,7 +117,15 @@ test('deck mode refuses --tagged with a --flow pointer, not silently untagged', 
   if (!findChromium()) return t.skip('Chromium not available');
   await assert.rejects(
     convert(fixture('tagged.html'), { out: out('deck.pdf'), tagged: true }),
-    /--tagged applies to --flow only.*structure tree/gs
+    /--tagged and --pdfa apply to --flow only.*structure tree/gs
+  );
+});
+
+test('deck mode refuses --pdfa the same way (its tail is a finished-single-print tail)', async (t) => {
+  if (!findChromium()) return t.skip('Chromium not available');
+  await assert.rejects(
+    convert(fixture('tagged.html'), { out: out('deck-pdfa.pdf'), pdfa: true }),
+    /--tagged and --pdfa apply to --flow only.*finished-print tail/gs
   );
 });
 
@@ -101,4 +134,21 @@ test('the CLI refuses --tagged without --flow before any browser is touched', ()
   assert.equal(res.status, 2, `usage error exits 2 (got ${res.status})`);
   assert.match(res.stderr, /--tagged applies to --flow only/);
   assert.match(res.stderr, /--layout flow/);
+});
+
+test('the CLI refuses --pdfa without --flow before any browser is touched', () => {
+  const res = spawnSync(process.execPath, [BIN, fixture('tagged.html'), '--pdfa'], { encoding: 'utf8' });
+  assert.equal(res.status, 2, `usage error exits 2 (got ${res.status})`);
+  assert.match(res.stderr, /--pdfa applies to --flow only/);
+  assert.match(res.stderr, /--layout flow/);
+});
+
+test('--pdfa and --tagged cannot combine — the claims collide in one XMP packet', async (t) => {
+  await assert.rejects(
+    convert(fixture('tagged.html'), { out: out('both.pdf'), flow: true, tagged: true, pdfa: true }),
+    /--pdfa and --tagged cannot combine.*SPEC §6/gs
+  );
+  const res = spawnSync(process.execPath, [BIN, fixture('tagged.html'), '--flow', '--tagged', '--pdfa'], { encoding: 'utf8' });
+  assert.equal(res.status, 2, `usage error exits 2 (got ${res.status})`);
+  assert.match(res.stderr, /cannot combine/);
 });

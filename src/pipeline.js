@@ -49,6 +49,7 @@ import { armRequestPolicy } from './security.js';
 import { finalizePdf, applyDeterministicMetadata, dedupeIdenticalStreams, writeOutline } from './finalize.js';import { minifyPdf } from './minify.js';import { stampPdf } from './stamp.js';
 import { splitPdf } from './split.js';
 import { buildFlowDocument, printFlow, analyzeFlowPdf, verifyFlow, mapSectionsToPages, flowOutlineEntries } from './flow.js';
+import { PDF_A_PART, PDF_A_CONFORMANCE } from './tagged.js';
 import { inlineLocalAssets } from './assets.js';
 import { estimateTocPages, buildTocHtml } from './toc.js';
 import { applyPreset, PRESET_NAMES } from './presets.js';
@@ -668,6 +669,16 @@ export async function convert(inputPath, raw = {}) {
   if (options.watermark != null && String(options.watermark).trim() === '') {
     throw new Error('watermark: text is required (non-empty)');
   }
+  // Measured constraint (veraPDF 1.30.3, SPEC §6): the PDF/A-2 model rejects
+  // the pdfuaid identification schema — even declared exactly as its own
+  // metadata fixer declares it — and rejects its own ExtensionSchema
+  // container property, so one XMP packet cannot carry the attested PDF/A
+  // identification AND the PDF/UA-1 identifier. One claim per print.
+  if (options.pdfa && options.tagged) {
+    throw new Error(
+      '--pdfa and --tagged cannot combine: one XMP packet cannot carry the attested PDF/A identification and the PDF/UA-1 identifier at the validator build this pipeline is measured against (see SPEC §6); pick one claim'
+    );
+  }
   // Fail fast on bad output locations BEFORE launching the browser / doing
   // minutes of print work (a careless -o typo should not cost a full run).
   const outputs = resolveOutputs(inputPath, options);
@@ -908,6 +919,7 @@ export async function convert(inputPath, raw = {}) {
           ...docOpts,
           outline: outlineEntries,
           tagged: options.tagged === true,
+          pdfa: options.pdfa === true,
           lang: printedDom.lang || dom.lang || null,
         });
         fs.copyFileSync(finalPath, outputs.master);
@@ -971,16 +983,19 @@ export async function convert(inputPath, raw = {}) {
           stamp: stampResult,
           split: splitResult,
           tagged: options.tagged === true ? { applied: true, lang: printedDom.lang || null } : null,
+          pdfa: options.pdfa === true ? { applied: true, profile: 'sRGB', part: PDF_A_PART, conformance: PDF_A_CONFORMANCE } : null,
         };
       }
 
       // ------------------------------------------------------------ deck
-      // Tagged output is a flow-only shape: deck mode prints one PDF per
-      // section and merges them, so the merged document has no single
-      // structure tree to carry. Fail loudly with the pointer to --flow.
-      if (options.tagged) {
+      // Tagged output and the PDF/A tail are flow-only shapes: deck mode
+      // prints one PDF per section and merges them, so the merged document
+      // has no single structure tree to carry, and the standards tail (XMP,
+      // OutputIntent) is built for the finished single print. Fail loudly
+      // with the pointer to --flow.
+      if (options.tagged || options.pdfa) {
         throw new Error(
-          '--tagged applies to --flow only: deck mode merges one print per section, so the merged document cannot carry one structure tree. Pass --flow (or --layout flow) with --tagged.'
+          '--tagged and --pdfa apply to --flow only: deck mode merges one print per section, so the merged document cannot carry one structure tree (tagged) or the finished-print tail (pdfa). Pass --flow (or --layout flow).'
         );
       }
       if (onProgress) onProgress('print-master', { sections: limited.length });

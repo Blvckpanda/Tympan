@@ -30,7 +30,7 @@ export { detectSectionsInPage, capturePreludeInPage, withPrelude, describeDetect
 export { auditAccessibilityInPage, a11yFindings, CONTRAST_NORMAL, CONTRAST_LARGE } from './a11y.js';
 export { auditPdfBytes, classifyStream, formatBytesReport, BYTE_KINDS } from './bytes.js';
 export { minifyPdf, OBJSTM_MAX_OBJECTS, OBJSTM_MAX_BYTES, MINIFY_LEVEL } from './minify.js';
-export { inspectTagged, applyTaggedTail, buildTaggedXmp, PDF_UA_VERSION } from './tagged.js';
+export { inspectTagged, applyStandardsTail, buildTaggedXmp, loadSrgbProfile, PDF_UA_VERSION, PDF_A_PART, PDF_A_CONFORMANCE } from './tagged.js';
 export { stampPdf, placementFor, fontSizeFor, STAMP_OPACITY } from './stamp.js';
 export { splitPdf } from './split.js';
 export { findChromium, launchOptions } from './browser.js';

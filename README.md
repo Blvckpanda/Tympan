@@ -453,9 +453,7 @@ Honest limits: the tag tree is Chromium's, at its engine pin — tympan does
 not synthesize tags a document does not have (a `figure` with no alt text is
 still the source's finding). Deck (one-section-per-page) mode refuses the
 flag: it merges one print per section, so the merged pages share no single
-structure tree. And PDF/A conformance is not claimed: it needs an embedded
-OutputIntent (an ICC profile) the engine's writer does not emit, and the XMP
-identification is never faked without one.
+structure tree. PDF/A claims live on their own flag — see `--pdfa` below.
 
 A real validator result is on record: veraPDF 1.30.3, PDF/UA-1 profile, over
 this mode's fixture output → **105 of 106 rules pass, 809 of 811 checks**.
@@ -464,6 +462,38 @@ pre-content fill and clip operations unmarked (neither artifact nor tagged)
 — and tympan does not synthesize tagging on top of its engine. The two
 failures tympan owned (the `pdfuaid:part` identifier property, link
 annotations without an alternate description) are fixed.
+
+## Archive conformance: `--flow --pdfa`
+
+`--pdfa` makes the finished flow print claim PDF/A-2b, and every half of the
+claim is carried by real data, not asserted: the catalog gets a `GTS_PDFA1`
+OutputIntent bound to a **measured sRGB characterization** (a 456-byte CC0
+ICC v2 profile vendored verbatim at [assets/icc/](assets/icc/) — zero npm
+dependencies, not a synthesized pseudo-sRGB), and the XMP packet carries the
+`pdfaid:part 2 / conformance B` identification with the fixed dates and
+producer of the deterministic tail.
+
+```bash
+tympan brief.html --flow --pdfa                  # PDF/A-2b-identified archive copy
+tympan "records/*.html" --flow --pdfa -o dist/   # one warm browser, every file
+```
+
+Measured against the validator, not asserted: **veraPDF 1.30.3, PDF/A-2b →
+fully compliant on both artifacts tried — 144 of 144 rules, 1350 of 1350
+checks on the fixture output, and 144 of 144 rules, 1059 of 1059 checks on
+the ai-deck smoke input.** One measured constraint: one XMP packet cannot
+carry the attested PDF/A identification AND the PDF/UA-1 identifier at this
+validator build (the PDF/A-2 model rejects the pdfuaid schema — even
+DECLARED exactly the way veraPDF's own metadata fixer declares it). So
+`--pdfa` packets carry zero non-predefined schema properties, and
+`--tagged --pdfa` is refused at the flag level: pick one claim per print.
+If a future validator build accepts the declared coexistence, the flags
+combine again — the docs and the error message name today's model version.
+
+Also still stated plainly: PDF/A-2b across a corpus depends on the corpus
+(exotic color spaces, JPEG2000, unembedded fonts) — the flags above were
+measured on tympan's own output; a document carrying what the engine cannot
+embed may still notch validator findings, which is the source's to fix.
 
 ## Live preview: `tympan preview`
 
@@ -590,10 +620,11 @@ Where things stand:
   shipped in v0.9 (`tympan bytes` / `--minify`, `tympan lint --a11y`);
   tagged PDF/PDF-UA at Chromium's fidelity ships as `--flow --tagged`
   (structure tag tree, `/Lang`, title in the reader, PDF/UA-1 identifier —
-  flow-only, because deck's merged pages share no structure tree). Still
-  open: PDF/A — it needs an embedded OutputIntent (an ICC profile) the
-  engine's writer does not emit, and tympan does not fake the XMP
-  identification without one.
+  flow-only, because deck's merged pages share no structure tree), and
+  PDF/A-2b ships as `--flow --pdfa` — **fully compliant under veraPDF
+  1.30.3** (144/144 rules on both artifacts tried), OutputIntent bound to a
+  456-byte CC0 sRGB profile vendored at `assets/icc/`, pdfaid XMP paired,
+  zero new dependencies. What stays open and why is in SPEC §6.
 
 Non-goals (from the spec): our own layout engine, a GUI, a general PDF
 editor, Word/PowerPoint conversion, OCR, AI in the render path.

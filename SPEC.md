@@ -177,9 +177,29 @@ the letter of the spec, the deviation and its reason are recorded here.
   `pdfuaid:part 1` (veraPDF's PDFUAIdentification schema property), and
   every visible link annotation now carries its own URI as the alternate
   description of 7.18.1/7.18.5 (Chromium's print emits Link annots with no
-  Contents and no Alt entry). **PDF/A stays open:** it needs an embedded OutputIntent (an ICC
-  profile) that Chromium's writer does not emit, and tympan does not fake
-  the XMP identification without one.
+  Contents and no Alt entry).
+- `--pdfa`, with `--flow`, shipped 2026-11-04: PDF/A-2b carried by real data,
+  dependency-free. The catalog gets a `GTS_PDFA1` OutputIntent bound to the
+  sRGB characterization embedded verbatim from `assets/icc/sRGB-v2-micro.icc`
+  — 456 bytes, ICC v2, CC0, from saucecontrol/Compact-ICC-Profiles (seen in
+  `assets/icc/README.md` with the sha256 prefix). NOT synthesized in code:
+  an sRGB claim means a measured characterization. The XMP packet pairs the
+  pdfaid identification (`pdfaid:part 2`, `pdfaid:conformance B`) with the
+  tail's fixed dates/producer. Deck mode refuses the flag for the same
+  finished-single-print reason as `--tagged`. **Measured against the
+  validator: veraPDF 1.30.3, PDF/A-2b → FULLY COMPLIANT on both artifacts
+  tried (fixture: 144 of 144 rules, 1350 of 1350 checks; the ai-deck smoke
+  input: 144 of 144 rules, 1059 of 1059 checks).** One measured constraint,
+  recorded not argued away: the PDF/A-2 model (6.6.2.3.1) rejects the
+  pdfuaid identification schema in the XMP — even DECLARED exactly the way
+  veraPDF's own metadata fixer declares it (nested rdf:Description form,
+  pdfx fields) — and rejects the pdf:ExtensionSchema container property
+  itself; veraPDF's `--fixmetadata` output fails the same rule. So one
+  packet attests ONE claim: `--pdfa` packets carry only predefined-schema
+  properties (no pdfuaid entry), and `--tagged --pdfa` is refused at flag
+  level. §4's `PDF/A-3 with embedded XML (Factur-X/ZUGFeRD)` remains as
+  exactly that — the factur-X embedded-XML variant, a further, separate
+  build on top of this tail.
 - `tympan preview` (Phase 1 sketch, §5) shipped 2026-10-16: one paper-sized
   sheet per section with the text area, the shrink factor and the fill line
   drawn, measured by the printer's own code path (a test pins that the preview

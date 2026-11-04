@@ -60,6 +60,12 @@ Options:
                        deterministic XMP packet carrying the PDF/UA-1
                        identifier. Deck mode refuses: its pages are merged
                        from one print per section, so no shared tag tree
+  --pdfa              With --flow: PDF/A-2b-shaped output — the pdfaid:part/
+                       conformance XMP identification plus a GTS_PDFA1
+                       OutputIntent bound to the embedded 456-byte sRGB
+                       profile (CC0, assets/icc/): no new dependency. What
+                       a validator accepts is measured and recorded in
+                       SPEC §6, not asserted
                        (a preset may resolve it from the document title)
   --preset <name>     deck | report | book | invoice | contract: a documented
                        bundle of defaults; explicit flags always win
@@ -207,6 +213,7 @@ const SPEC = {
     '--minify',
     '--split',
     '--tagged',
+    '--pdfa',
     '-h',
     '--help',
   ],
@@ -282,8 +289,11 @@ function convertOptions() {
     // Splitting (SPEC Phase 2): the master, as one artifact per sheet.
     split: args.has('--split'),
     // Standards output (SPEC Phase 2): the engine's tag tree plus the
-    // deterministic self-description (Lang, PDF/UA-1 XMP). Flow-only.
+    // deterministic self-description (Lang, PDF/UA-1 XMP), and — opt-in —
+    // the PDF/A-2 tail (OutputIntent + pdfaid XMP) on the finished print.
+    // Flow-only.
     tagged: args.has('--tagged'),
+    pdfa: args.has('--pdfa'),
   };
   // A preset sets documented defaults; explicit flags always win over them.
   // Applied FIRST so later reads of opts read the folded values.
@@ -318,6 +328,16 @@ function convertOptions() {
   if (opts.tagged && !opts.flow) {
     usageError(
       '--tagged applies to --flow only: deck mode merges one print per section, so the pages cannot share one structure tree (pass --flow, or --layout flow)'
+    );
+  }
+  if (opts.pdfa && !opts.flow) {
+    usageError(
+      '--pdfa applies to --flow only: the OutputIntent and PDF/A XMP identification land on the finished single print (pass --flow, or --layout flow)'
+    );
+  }
+  if (opts.pdfa && opts.tagged) {
+    usageError(
+      '--pdfa and --tagged cannot combine: one XMP packet cannot carry the attested PDF/A identification and the PDF/UA-1 identifier at the validator build this pipeline is measured against (see SPEC §6); pick one claim'
     );
   }
   if (args.has('--fill')) {
