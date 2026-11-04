@@ -119,9 +119,19 @@ export function flowCss(opts = {}) {
  */
 export function buildFlowDocument(templateHtml, bodyHtml, opts = {}) {
   const style = '<style id="tympan-flow">\n' + flowCss({ pageNumbers: opts.pageNumbers, pageFooter: opts.pageFooter, fill: opts.fill }) + '\n</style>';
-  const withBody = templateHtml.replace('<main></main>', '<main>' + bodyHtml + '</main>');
-  if (!withBody.includes('</head>')) return withBody + style;
-  return withBody.replace('</head>', style + '</head>');
+  let doc = templateHtml.replace('<main></main>', '<main>' + bodyHtml + '</main>');
+  if (!doc.includes('</head>')) doc = doc + style;
+  else doc = doc.replace('</head>', style + '</head>');
+  // The flow print document must carry the SOURCE's own <html lang>: the
+  // tagged writer derives /Lang from the print document, and its fallback
+  // for a lang-less one is the AGENT'S locale (en-US on this machine), which
+  // would make two identical inputs differ across machines. A missing
+  // language is the source's gap — `tympan lint --a11y` names it — and
+  // applyTaggedTail deletes the engine's fallback instead of inventing one.
+  if (opts.lang) {
+    doc = doc.replace(/<html\b(?![^>]*\blang\s*=)([^>]*)>/i, (m, attrs) => `<html${attrs} lang="${opts.lang}">`);
+  }
+  return doc;
 }
 
 /**
@@ -170,6 +180,9 @@ export async function printFlow(browser, docHtml, outPath, geo, opts = {}) {
       return {
         overflowPx: Math.max(0, Math.round(doc.scrollWidth - doc.clientWidth)),
         widthPx: Math.round(doc.clientWidth),
+        // The document language is what /Lang on the tagged tail carries —
+        // harvested where the DOM is already in hand, never re-opened later.
+        lang: typeof doc.lang === 'string' ? doc.lang : null,
         // Counted here so verification can say how many keep-together blocks
         // existed even when it cannot say whether one was split.
         keepTogetherBlocks: document.querySelectorAll('figure,table,pre,blockquote,img,svg').length,
@@ -192,6 +205,10 @@ export async function printFlow(browser, docHtml, outPath, geo, opts = {}) {
       // point of this mode. `--fill tight` is the opt-in exception, and it is
       // a bounded, reported candidate — never a silent open loop.
       scale: opts.scale && opts.scale >= 0.97 ? opts.scale : 1,
+      // `tagged` is opt-in AND flow-only (see pipeline.js): with one print
+      // per document the engine's own structure tree survives whole, which
+      // is the only shape a merged document cannot have.
+      tagged: opts.tagged === true,
       preferCSSPageSize: false,
     });
     overflow.vhClamped = vhClamped.clamped;

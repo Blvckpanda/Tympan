@@ -52,9 +52,14 @@ Options:
                        per page would waste sheets or start shrinking
   --fill <which>      With --flow: balanced (default), tight (bounded
                        micro-scale ladder, reported), or loose (keep-together
-                       wins, gaps accepted)
-  --toc               Generate a Contents page with per-section sheet numbers
+                       wins, gaps accepted)  --toc                Generate a Contents page with per-section sheet numbers
   --page-footer <t>   With --flow: static running footer in the bottom margin
+  --tagged            With --flow: tagged (accessible) PDF — the engine's
+                       structure tag tree plus the pipeline's own tail:
+                       /Lang, title shown in the reader's window, and a
+                       deterministic XMP packet carrying the PDF/UA-1
+                       identifier. Deck mode refuses: its pages are merged
+                       from one print per section, so no shared tag tree
                        (a preset may resolve it from the document title)
   --preset <name>     deck | report | book | invoice | contract: a documented
                        bundle of defaults; explicit flags always win
@@ -201,6 +206,7 @@ const SPEC = {
     '--a11y',
     '--minify',
     '--split',
+    '--tagged',
     '-h',
     '--help',
   ],
@@ -275,6 +281,9 @@ function convertOptions() {
     watermark: args.value('--watermark'),
     // Splitting (SPEC Phase 2): the master, as one artifact per sheet.
     split: args.has('--split'),
+    // Standards output (SPEC Phase 2): the engine's tag tree plus the
+    // deterministic self-description (Lang, PDF/UA-1 XMP). Flow-only.
+    tagged: args.has('--tagged'),
   };
   // A preset sets documented defaults; explicit flags always win over them.
   // Applied FIRST so later reads of opts read the folded values.
@@ -305,6 +314,11 @@ function convertOptions() {
   }
   if (opts.flow && (opts.layout === 'auto')) {
     usageError('--flow and --layout auto contradict each other; pass just one');
+  }
+  if (opts.tagged && !opts.flow) {
+    usageError(
+      '--tagged applies to --flow only: deck mode merges one print per section, so the pages cannot share one structure tree (pass --flow, or --layout flow)'
+    );
   }
   if (args.has('--fill')) {
     const fill = args.value('--fill').toLowerCase();

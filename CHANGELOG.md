@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `--tagged`, with `--flow`: the tagged, standards-shaped print. One print per
+  document is what lets the engine's structure tag tree (`/StructTreeRoot`,
+  marked content, real heading/list/link semantics) survive whole, so the
+  flag is flow-only; the pipeline's deterministic tail adds what the engine
+  does not own — `/Lang` from the page's `html lang` (deleted, never filled
+  with the printing machine's locale, when the source names none),
+  `ViewerPreferences /DisplayDocTitle true`, and an XMP packet with fixed
+  dates, the tympan producer and the PDF/UA-1 identifier. Deck mode refuses
+  the flag: its pages are merged from one print per section and share no
+  structure tree. The suite verifies structurally via `inspectTagged` (no
+  bundled validator; veraPDF needs a JVM) — tree, MarkInfo, /Lang,
+  identifier, and byte-identity over repeated tagged runs.
+
 ## [0.8.0] - 2026-10-21
 
 ### Added

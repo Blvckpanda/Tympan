@@ -416,6 +416,38 @@ tympan book.html --split --minify -o out.pdf  # parts built from the compact mas
 tympan "docs/*.html" --split -o dist/         # one warm browser, every file
 ```
 
+## Tagged, accessible output: `--flow --tagged`
+
+One print per document is what lets a tagged PDF exist at all, so the flag
+lives on flow: the engine's structure tag tree (`/StructTreeRoot`, marked
+content, real heading/list/link semantics the way a screen reader reads)
+survives that one print whole. The pipeline adds the self-description the
+engine does not own deterministically:
+
+- `/Lang` from the page's own `<html lang>`; when the source names no
+  language the tail DELETES the engine's locale fallback rather than claim
+  the printing machine's voice (`tympan lint --a11y` names that gap in the
+  source as `a11y-html-lang`).
+- `ViewerPreferences /DisplayDocTitle true` — the document's title in the
+  reader's window title bar.
+- an XMP packet owned by the pipeline: fixed dates, the tympan producer, the
+  document's title/author/subject, and the PDF/UA-1 identifier
+  (`pdfuaid:pdfuaid 1`).
+
+```bash
+tympan brief.html --flow --tagged                    # tag tree + UA id + title bar
+tympan brief.html --flow --tagged --title "Q3 Report" --author Ann R.
+tympan "docs/*.html" --flow --tagged -o dist/        # one warm browser, every file
+```
+
+Honest limits: the tag tree is Chromium's, at its engine pin — tympan does
+not synthesize tags a document does not have (a `figure` with no alt text is
+still the source's finding). Deck (one-section-per-page) mode refuses the
+flag: it merges one print per section, so the merged pages share no single
+structure tree. And PDF/A conformance is not claimed: it needs an embedded
+OutputIntent (an ICC profile) the engine's writer does not emit, and the XMP
+identification is never faked without one.
+
 ## Live preview: `tympan preview`
 
 Printing is the only way to be *certain* about a page break — the printer closes
@@ -537,9 +569,14 @@ Where things stand:
 - **Diagnostics and preview (shipped early, see SPEC §10):** `tympan lint`
   (the spec's Phase 1 diagnostics list: failed requests, overflow warnings,
   `--strict`, JSON) and `tympan preview` (Phase 1 sketch: live page-break and
-  fill overlay). **Phase 2 — the size and accessibility halves shipped in
-  v0.9** (`tympan bytes` / `--minify`, `tympan lint --a11y`); still open:
-  tagged PDF/PDF-UA and PDF/A.
+  fill overlay). **Phase 2 — standards:** the size and accessibility halves
+  shipped in v0.9 (`tympan bytes` / `--minify`, `tympan lint --a11y`);
+  tagged PDF/PDF-UA at Chromium's fidelity ships as `--flow --tagged`
+  (structure tag tree, `/Lang`, title in the reader, PDF/UA-1 identifier —
+  flow-only, because deck's merged pages share no structure tree). Still
+  open: PDF/A — it needs an embedded OutputIntent (an ICC profile) the
+  engine's writer does not emit, and tympan does not fake the XMP
+  identification without one.
 
 Non-goals (from the spec): our own layout engine, a GUI, a general PDF
 editor, Word/PowerPoint conversion, OCR, AI in the render path.

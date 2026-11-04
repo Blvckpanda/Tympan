@@ -126,6 +126,12 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
     : clampLoadWidth(requestedWidth);
   // Playwright evaluate takes exactly ONE serializable arg — bundle them.
   const templateHtml = await page.evaluate(buildCleanTemplate, { maxWidthPx: contentMaxWidth, background });
+  // The source's own language, harvested while the original document is in
+  // hand: flow-mode tagging prints it onto the print document's <html>, so
+  // the tagged writer's /Lang is the document's — never the printing
+  // machine's locale fallback (applyTaggedTail deletes that). The clean
+  // template is not guaranteed to carry the attribute across.
+  const sourceLang = await page.evaluate(() => document.documentElement.lang || null);
   const detection = await page.evaluate(detectSectionsInPage, selector);
   const prelude = await page.evaluate(capturePreludeInPage);
   const docTitle = await page.evaluate(() => (document.title || '').trim() || null);
@@ -167,6 +173,7 @@ export async function loadAndExtract(browser, inputPath, selector, opts = {}) {
     audit,
     a11y,
     inlinedAssets,
+    sourceLang,
     blocked: gate.blocked(),
   };
 }
@@ -705,6 +712,7 @@ export async function convert(inputPath, raw = {}) {
         audit,
         a11y,
         inlinedAssets,
+        sourceLang,
       } = await loadAndExtract(browser, inputPath, options.selector, {
           loadW: geo.loadW,
           columnW: geo.columnW,
@@ -785,6 +793,7 @@ export async function convert(inputPath, raw = {}) {
             pageNumbers: !!options.pageNumbers,
             pageFooter: runningFooter,
             fill: options.fill,
+            lang: sourceLang,
           });
           const rawPath = path.join(workdir, `flow-raw-${candidate}.pdf`);
           const thisDom = await printFlow(browser, flowHtml, rawPath, geo, {
@@ -792,6 +801,7 @@ export async function convert(inputPath, raw = {}) {
             waitFor: options.waitFor,
             waitTimeout: options.waitTimeout,
             scale: candidate,
+            tagged: !!options.tagged,
           });
           const thisAnalysis = await analyzeFlowPdf(rawPath, geo);
           attempts.push({ scale: candidate, pages: thisAnalysis.pageCount, analysis: thisAnalysis, dom: thisDom, rawPath });
@@ -841,10 +851,11 @@ export async function convert(inputPath, raw = {}) {
                 pageNumbers: !!options.pageNumbers,
                 pageFooter: runningFooter,
                 fill: options.fill,
+                lang: sourceLang,
               }),
               rawUsed,
               geo,
-              { ...secOpts, waitFor: options.waitFor, waitTimeout: options.waitTimeout, scale: chosenScale }
+              { ...secOpts, waitFor: options.waitFor, waitTimeout: options.waitTimeout, scale: chosenScale, tagged: !!options.tagged }
             );
             finalAnalysis = await analyzeFlowPdf(rawUsed, geo);
             const mapped = mapSectionsToPages(finalAnalysis, limited, { preferLead: true });
@@ -893,7 +904,12 @@ export async function convert(inputPath, raw = {}) {
           outlineEntries = flowOutlineEntries(titles, mapped);
         }
         const finalPath = path.join(workdir, 'flow-final.pdf');
-        await finalizePdf(rawUsed, finalPath, { ...docOpts, outline: outlineEntries });
+        await finalizePdf(rawUsed, finalPath, {
+          ...docOpts,
+          outline: outlineEntries,
+          tagged: options.tagged === true,
+          lang: printedDom.lang || dom.lang || null,
+        });
         fs.copyFileSync(finalPath, outputs.master);
         // SPEC §4 Phase 2 size pass: rewrite the file (objstm + xref stream),
         // never the document. Runs before the size is measured, so the
@@ -954,10 +970,19 @@ export async function convert(inputPath, raw = {}) {
           verification,          minify: minifyResult,
           stamp: stampResult,
           split: splitResult,
+          tagged: options.tagged === true ? { applied: true, lang: printedDom.lang || null } : null,
         };
       }
 
       // ------------------------------------------------------------ deck
+      // Tagged output is a flow-only shape: deck mode prints one PDF per
+      // section and merges them, so the merged document has no single
+      // structure tree to carry. Fail loudly with the pointer to --flow.
+      if (options.tagged) {
+        throw new Error(
+          '--tagged applies to --flow only: deck mode merges one print per section, so the merged document cannot carry one structure tree. Pass --flow (or --layout flow) with --tagged.'
+        );
+      }
       if (onProgress) onProgress('print-master', { sections: limited.length });
       // `--toc` in section mode is simple arithmetic: every section prints as
       // exactly one sheet (that is the mode's invariant), so the TOC's sheet

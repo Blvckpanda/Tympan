@@ -150,8 +150,29 @@ the letter of the spec, the deviation and its reason are recorded here.
   "console errors, failed requests, missing fonts, overflow warnings, `--strict`,
   JSON output, meaningful exit codes, `doctor` command". `tympan lint` (built
   2026-10-16) is that list's diagnostics half — failed requests, overflow
-  warnings, `--strict`, JSON — and **not** the Phase 2 half of §4's `lint` item,
-  which is accessibility and tagged-PDF validation and stays unbuilt.
+  warnings, `--strict`, JSON — and **not** the Phase 2 half of §4's `lint`
+  item, which is accessibility validation; its accessibility rules shipped
+  as `lint --a11y` in the v0.9.0 line (the standards OUTPUT half ships
+  separately — see `--tagged` above).
+- `--tagged`, with `--flow`, shipped 2026-11-04: Phase 2's tagged-PDF item at
+  Chromium's fidelity. A flow print is one print per document, so the
+  engine's structure tag tree (`/StructTreeRoot` with marked content, real
+  heading/list/link semantics) survives whole; the pipeline's deterministic
+  tail adds what the engine does not own — `/Lang` from the page's
+  `<html lang>` (deleted, never filled with the printing machine's locale,
+  when the source names none — that gap is `lint --a11y`'s
+  `a11y-html-lang`), `ViewerPreferences /DisplayDocTitle true`, and an XMP
+  packet with fixed dates, the tympan producer and the PDF/UA-1 identifier
+  (`pdfuaid:pdfuaid 1`). Deck mode REFUSES the flag — it merges one print
+  per section, so its pages share no structure tree. The suite verifies
+  structurally (`inspectTagged`: tree, MarkInfo, /Lang, identifier,
+  byte-identity over repeated runs). **§6's "verify against PDF/UA checks"
+  stays partially met on purpose:** tympan carries no bundled validator
+  (veraPDF needs a JVM); the checks are structural, and full PDF/UA-1
+  conformance is not claimed, because the tag tree is the engine's at its
+  pin. **PDF/A stays open:** it needs an embedded OutputIntent (an ICC
+  profile) that Chromium's writer does not emit, and tympan does not fake
+  the XMP identification without one.
 - `tympan preview` (Phase 1 sketch, §5) shipped 2026-10-16: one paper-sized
   sheet per section with the text area, the shrink factor and the fill line
   drawn, measured by the printer's own code path (a test pins that the preview

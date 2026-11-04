@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFArray, PDFRef } from 'pdf-lib';
+import { applyTaggedTail } from './tagged.js';
 
 const require = createRequire(import.meta.url);
 const { version: TYMPAN_VERSION } = require('../package.json');
@@ -201,7 +202,10 @@ export function writeOutline(doc, pages, entries) {
  *
  * @param {string} inputPath PDF written by Chromium
  * @param {string} outputPath where the finalised PDF goes (may equal inputPath)
- * @param {object} [opts] { contentHash, title, author, subject, creator, outline? }
+ * @param {object} [opts] { contentHash, title, author, subject, creator, outline?,
+ *   tagged?, lang? } — `tagged` applies the standards tail (ViewerPreferences
+ *   /DisplayDocTitle, /Lang, the pipeline-owned deterministic XMP with the
+ *   PDF/UA-1 identifier); lang is sourced from the page's <html lang>.
  * @returns {Promise<{bytes: number}>}
  */
 export async function finalizePdf(inputPath, outputPath, opts = {}) {
@@ -212,6 +216,7 @@ export async function finalizePdf(inputPath, outputPath, opts = {}) {
   if (opts.author) doc.setAuthor(opts.author);
   if (opts.subject) doc.setSubject(opts.subject);
   applyDeterministicMetadata(doc, opts);
+  if (opts.tagged) applyTaggedTail(doc, opts);
   if (Array.isArray(opts.outline) && opts.outline.length) {
     writeOutline(doc, doc.getPages(), opts.outline);
   }
