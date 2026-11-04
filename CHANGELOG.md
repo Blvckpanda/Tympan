@@ -642,7 +642,14 @@ All notable changes to this project are documented here. The format is based on
   section.
 - `PUBLISHING.md` and `CONTRIBUTING.md`.
 
-## [Unreleased]
+## Historical (kept verbatim) — the original launch staircase
+
+The working list as it stood before the first public release line, never dated
+as releases shipped. Every item below landed in the versions that followed
+(the library API, the section-detection ladder, the clean-document pipeline,
+the email variant, self-verification, release automation, the launch assets
+are all in the shipped package), so this is history, not open work. The
+entries are unchanged.
 
 ### Added
 - `convert(input, options)` library API and `platen` CLI (in progress).

@@ -529,11 +529,17 @@ Where things stand:
   in flow mode, `--page-footer`, `--fill balanced|tight|loose`, presets
   (`deck|report|book|invoice|contract`), local sibling images inlined as data
   URIs, and fill baselines inside `tympan test`.
+- **Now (v0.9):** the SPEC §4 Phase 2 instruments — `tympan bytes` (the size
+  baseline instrument), `--minify` (the deterministic rewrite pass),
+  `--watermark` (stamping every page), `--split` (one PDF per sheet) and
+  `tympan lint --a11y` (WCAG rules over the source) — plus the gated
+  `tympan ui` server and the corpus benchmark with published numbers.
 - **Diagnostics and preview (shipped early, see SPEC §10):** `tympan lint`
   (the spec's Phase 1 diagnostics list: failed requests, overflow warnings,
   `--strict`, JSON) and `tympan preview` (Phase 1 sketch: live page-break and
-  fill overlay). **Phase 2 — standards:** tagged PDF/PDF-UA, PDF/A, size
-  optimization, accessibility `lint`.
+  fill overlay). **Phase 2 — the size and accessibility halves shipped in
+  v0.9** (`tympan bytes` / `--minify`, `tympan lint --a11y`); still open:
+  tagged PDF/PDF-UA and PDF/A.
 
 Non-goals (from the spec): our own layout engine, a GUI, a general PDF
 editor, Word/PowerPoint conversion, OCR, AI in the render path.
