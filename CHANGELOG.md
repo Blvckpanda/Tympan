@@ -14,79 +14,15 @@ All notable changes to this project are documented here. The format is based on
   does not own — `/Lang` from the page's `html lang` (deleted, never filled
   with the printing machine's locale, when the source names none),
   `ViewerPreferences /DisplayDocTitle true`, and an XMP packet with fixed
-  dates, the tympan producer and the PDF/UA-1 identifier. Deck mode refuses
+  dates, the tympan producer and the PDF/UA-1 identifier (written as
+  `pdfuaid:part`, the schema property validators read), and every visible
+  link annotation carries its own URI as its alternate description (PDF/UA-1
+  7.18). Deck mode refuses
   the flag: its pages are merged from one print per section and share no
-  structure tree. The suite verifies structurally via `inspectTagged` (no
-  bundled validator; veraPDF needs a JVM) — tree, MarkInfo, /Lang,
-  identifier, and byte-identity over repeated tagged runs.
-
-## [0.8.0] - 2026-10-21
-
-### Added
-- **`--flow`, one print per document (W2).** Chromium paginates the whole body
-  once with injected paged-media rules (headings keep with their text,
-  `orphans`/`widows` 2, `break-inside: avoid` on figures/tables/pre/blockquotes);
-  `scale` stays 1 because the layout flows instead of shrinking. Opt-in:
-  section mode remains the default and existing output bytes do not move —
-  including the input digest (flow options hash only when flow is on).
-  Measured on the Kitch documents (fill read from the produced PDF in BOTH
-  modes, bytes/wall included; see
-  [docs/BENCHMARKS.md](docs/BENCHMARKS.md)): 03-subscription-plans prints 10
-  sheets at 64% as 8 sheets at 81% (424 KB → 132 KB, 6.6s → 2.2s); pot-counter
-  collapses 4 sparse sheets into 2 real ones. The deterministic tail is shared
-  between the producers in `finalize.js` (fixed Producer/dates, input-hash
-  `/ID`, `tympan:<hash>` keyword), so byte-identity holds in both modes.
-- **`--layout auto` — the chooser from the plan.** Every section is measured
-  first (the numbers `printSection` starts from); flow is picked only when
-  one-section-per-page would waste more sheet area than `targetFill` allows or
-  a section starts shrinking below 0.95. The result carries the pick AND the
-  arithmetic (`layoutChoice`); deck keeps running where it is already right
-  (pot-counter measures full sheets).
-- **Local sibling images survive the request gate (W1 finding).** The gate
-  blocks `file://` reads by design, which blanked `<img src="logo.png">`. Node
-  reads the file and inlines it as a data URI before detection — nothing is
-  unblocked, and an asset that does not exist stays broken and reported.
-  Bounds: image extensions only, 8 MB cap, regular files only.
-- **`--toc` — a generated Contents page with real sheet numbers.** Section
-  mode settles the numbers by arithmetic (every section prints as exactly one
-  sheet); flow mode maps every section to the sheet its heading lands on via
-  the PDF's own text layer and converges the numbering when the TOC's own
-  block shifts it (bounded at 3 passes, stability reported).
-- **Real outline destinations in flow mode.** `--outline` used to be
-  rejected in flow mode because nothing could map a section to a page; the
-  text-layer mapping writes bookmarks that point where the reader really
-  lands (monotone search, forward-falling fallback, ids ignored so they can
-  never match the wrong page).
-- **`--page-footer <text>` — a running footer via Chrome 131+ margin boxes.**
-  Static text (Blink has no string-set), printed by the engine next to the
-  `n / total` counter and extractable from the PDF; the book/contract presets
-  resolve it from the document `<title>`.
-- **`--fill balanced|tight|loose` (flow only).** balanced is native flow;
-  tight tries a BOUNDED uniform micro-scale ladder (1, 0.98, 0.97 — the
-  plan's floor) and keeps the fewest-pages winner, reported in `fillPolicy`;
-  loose extends keep-together to `li, dd, dt` and accepts gaps. Unbounded
-  shrink-to-fill remains rejected. `--layout`, `--toc`, `--page-footer` and
-  `--preset` join the HTTP API's allowed options.
-- **`--preset deck|report|book|invoice|contract`.** Documented bundles (`deck`
-  = today's deck behaviour; report = flow + page numbers; book = report + TOC
-  + title running footer + book margins; invoice = tightened side margins in
-  the section engine; contract = flow + page numbers + title footer).
-  Explicit flags win over every preset default, in the CLI and the API.
-- **Fill baselines are first-class in `tympan test`.** A baseline records each
-  page's fill (measured from the produced PDF, not the DOM) in
-  `<goldenDir>/<input>/fills.json`; a page dropping below its floor fails
-  (`FILL_TOLERANCE` 5% relative). Existing baselines adopt theirs on first
-  compare instead of failing out of the box.
-
-### Changed
-- **Merge dedup, measured honestly.** Per-section prints DO duplicate
-  resources; a content-hash collapse of byte-identical streams
-  (`dedupeIdenticalStreams` in `finalize.js`, applied to both modes) removes
-  56 objects / 6 KB on the measured deck. The full 28→5 font-program collapse
-  the plan promised CANNOT be done at the merge: subsets of the same face per
-  section print have distinct glyph sets, so name-level merging would corrupt
-  extraction — the byte win the plan measured (2.9x) is what `--flow`'s
-  single print achieves (3.2x measured).
+  structure tree. The suite verifies structurally via `inspectTagged`, and
+  the output is checked against a real validator (veraPDF 1.30.3, PDF/UA-1:
+  105 of 106 rules pass; the one failure is the engine's unmarked page-fill
+  and clip ops — see SPEC §6).
 
 ## [0.9.0] - 2026-11-04
 
@@ -131,7 +67,7 @@ All notable changes to this project are documented here. The format is based on
   conversion loudly instead of degrading silently, and a blank watermark
   is rejected before the browser launches. Result carries `stamp` (pages
   + text drawn); pdfjs confirms the text is in every page's extractable
-  layer, through the e-mail variant and the stamp+minify composition.
+  layer, through the e-mail variant and the stamp+minify composition.
 - **`tympan lint --a11y` — the accessibility half of lint (SPEC §4's Phase 2
   item).** Opt-in: the audit costs a second body walk on the load visit, so
   it reads `auditA11y` on the conversion options and runs only when asked.
@@ -365,6 +301,74 @@ All notable changes to this project are documented here. The format is based on
   identical. Inches are now derived from the chosen format's points (72/inch):
   letter is 8.5×11in, A4 is unchanged (8.27×11.69in), so the default path's
   output bytes do not move. Found by the preview's sheet-size test.
+
+## [0.8.0] - 2026-10-21
+
+### Added
+- **`--flow`, one print per document (W2).** Chromium paginates the whole body
+  once with injected paged-media rules (headings keep with their text,
+  `orphans`/`widows` 2, `break-inside: avoid` on figures/tables/pre/blockquotes);
+  `scale` stays 1 because the layout flows instead of shrinking. Opt-in:
+  section mode remains the default and existing output bytes do not move —
+  including the input digest (flow options hash only when flow is on).
+  Measured on the Kitch documents (fill read from the produced PDF in BOTH
+  modes, bytes/wall included; see
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md)): 03-subscription-plans prints 10
+  sheets at 64% as 8 sheets at 81% (424 KB → 132 KB, 6.6s → 2.2s); pot-counter
+  collapses 4 sparse sheets into 2 real ones. The deterministic tail is shared
+  between the producers in `finalize.js` (fixed Producer/dates, input-hash
+  `/ID`, `tympan:<hash>` keyword), so byte-identity holds in both modes.
+- **`--layout auto` — the chooser from the plan.** Every section is measured
+  first (the numbers `printSection` starts from); flow is picked only when
+  one-section-per-page would waste more sheet area than `targetFill` allows or
+  a section starts shrinking below 0.95. The result carries the pick AND the
+  arithmetic (`layoutChoice`); deck keeps running where it is already right
+  (pot-counter measures full sheets).
+- **Local sibling images survive the request gate (W1 finding).** The gate
+  blocks `file://` reads by design, which blanked `<img src="logo.png">`. Node
+  reads the file and inlines it as a data URI before detection — nothing is
+  unblocked, and an asset that does not exist stays broken and reported.
+  Bounds: image extensions only, 8 MB cap, regular files only.
+- **`--toc` — a generated Contents page with real sheet numbers.** Section
+  mode settles the numbers by arithmetic (every section prints as exactly one
+  sheet); flow mode maps every section to the sheet its heading lands on via
+  the PDF's own text layer and converges the numbering when the TOC's own
+  block shifts it (bounded at 3 passes, stability reported).
+- **Real outline destinations in flow mode.** `--outline` used to be
+  rejected in flow mode because nothing could map a section to a page; the
+  text-layer mapping writes bookmarks that point where the reader really
+  lands (monotone search, forward-falling fallback, ids ignored so they can
+  never match the wrong page).
+- **`--page-footer <text>` — a running footer via Chrome 131+ margin boxes.**
+  Static text (Blink has no string-set), printed by the engine next to the
+  `n / total` counter and extractable from the PDF; the book/contract presets
+  resolve it from the document `<title>`.
+- **`--fill balanced|tight|loose` (flow only).** balanced is native flow;
+  tight tries a BOUNDED uniform micro-scale ladder (1, 0.98, 0.97 — the
+  plan's floor) and keeps the fewest-pages winner, reported in `fillPolicy`;
+  loose extends keep-together to `li, dd, dt` and accepts gaps. Unbounded
+  shrink-to-fill remains rejected. `--layout`, `--toc`, `--page-footer` and
+  `--preset` join the HTTP API's allowed options.
+- **`--preset deck|report|book|invoice|contract`.** Documented bundles (`deck`
+  = today's deck behaviour; report = flow + page numbers; book = report + TOC
+  + title running footer + book margins; invoice = tightened side margins in
+  the section engine; contract = flow + page numbers + title footer).
+  Explicit flags win over every preset default, in the CLI and the API.
+- **Fill baselines are first-class in `tympan test`.** A baseline records each
+  page's fill (measured from the produced PDF, not the DOM) in
+  `<goldenDir>/<input>/fills.json`; a page dropping below its floor fails
+  (`FILL_TOLERANCE` 5% relative). Existing baselines adopt theirs on first
+  compare instead of failing out of the box.
+
+### Changed
+- **Merge dedup, measured honestly.** Per-section prints DO duplicate
+  resources; a content-hash collapse of byte-identical streams
+  (`dedupeIdenticalStreams` in `finalize.js`, applied to both modes) removes
+  56 objects / 6 KB on the measured deck. The full 28→5 font-program collapse
+  the plan promised CANNOT be done at the merge: subsets of the same face per
+  section print have distinct glyph sets, so name-level merging would corrupt
+  extraction — the byte win the plan measured (2.9x) is what `--flow`'s
+  single print achieves (3.2x measured).
 
 ## [0.7.0] - 2026-10-15
 

@@ -66,6 +66,15 @@ if (!verification.ok) throw new Error('verification failed');
 Requires Node ≥ 20 and a Chromium binary (`npx playwright install chromium`, or point
 `TYMPAN_CHROMIUM` at any chrome executable).
 
+What tympan is **not**, said plainly because the shape invites the guess: it
+does not convert in a browser tab or on a phone — there is no WASM/client
+tympan, by design. It is a Node program that drives a *headless* browser on
+your machine or server (that browser is its engine, not its host), so it
+can read your files, spawn Chromium, and do the measurement and
+verification passes no in-page sandbox allows. What you may see "in a
+browser" are tympan's surrounding surfaces: `npm run ui` and `tympan preview`
+open in a tab, and `tympan serve` takes HTTP.
+
 ## Why it wins
 
 1. **Reproducible, proven:** identical input + options → **byte-identical
@@ -447,6 +456,14 @@ flag: it merges one print per section, so the merged pages share no single
 structure tree. And PDF/A conformance is not claimed: it needs an embedded
 OutputIntent (an ICC profile) the engine's writer does not emit, and the XMP
 identification is never faked without one.
+
+A real validator result is on record: veraPDF 1.30.3, PDF/UA-1 profile, over
+this mode's fixture output → **105 of 106 rules pass, 809 of 811 checks**.
+The single failing rule is the engine's own writer — it leaves the page's
+pre-content fill and clip operations unmarked (neither artifact nor tagged)
+— and tympan does not synthesize tagging on top of its engine. The two
+failures tympan owned (the `pdfuaid:part` identifier property, link
+annotations without an alternate description) are fixed.
 
 ## Live preview: `tympan preview`
 

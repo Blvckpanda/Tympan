@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { convert } from '../src/pipeline.js';
 import { findChromium } from '../src/browser.js';
 import { inspectTagged, PDF_UA_VERSION } from '../src/tagged.js';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from 'pdf-lib';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-tagged-'));
@@ -47,8 +48,24 @@ test('tagged flow output carries the tail: viewer prefs, /Lang, UA id, fixed XMP
   assert.equal(facts.markInfo, true);
   assert.equal(facts.displayDocTitle, true, 'the tail set ViewerPreferences /DisplayDocTitle');
   assert.equal(facts.lang, 'en-US', '/Lang came from the page html lang');
-  assert.equal(facts.uaId, PDF_UA_VERSION, 'the XMP carries the PDF/UA identifier');
+  assert.equal(facts.uaId, PDF_UA_VERSION, 'the XMP carries the PDF/UA identifier (pdfuaid:part)');
   assert.match(String(facts.xmpProducer), /^tympan \d+\.\d+\.\d+$/);
+
+  // PDF/UA-1 7.18: every visible link annotation carries an alternate
+  // description. The tail writes the link's own URI as its Contents.
+  const doc = await PDFDocument.load(fs.readFileSync(out('tagged.pdf')));
+  for (const page of doc.getPages()) {
+    const annotsRef = page.node.get(PDFName.of('Annots'));
+    if (!(annotsRef instanceof PDFRef) && !(annotsRef instanceof PDFArray)) continue;
+    const annots = annotsRef instanceof PDFRef ? doc.context.lookup(annotsRef, PDFArray) : annotsRef;
+    for (let i = 0; i < annots.size(); i++) {
+      const raw = annots.get(i);
+      const dict = raw instanceof PDFRef ? doc.context.lookupMaybe(raw, PDFDict) : raw instanceof PDFDict ? raw : null;
+      if (!dict || String(dict.get(PDFName.of('Subtype'))) !== '/Link') continue;
+      const contents = dict.get(PDFName.of('Contents'));
+      assert.ok(contents && String(contents).trim() !== '()', 'every visible Link annot carries Contents (verapdf ua1 7.18.5)');
+    }
+  }
 });
 
 test('two same-input tagged runs are byte-identical (the tail owns the dates)', async (t) => {

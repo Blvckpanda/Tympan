@@ -30,7 +30,7 @@
  *     the OutputIntent half is not, and is not faked.
  */
 import { createRequire } from 'node:module';
-import { PDFName, PDFRawStream, PDFString } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFHexString, PDFName, PDFRawStream, PDFRef, PDFString } from 'pdf-lib';
 
 const require = createRequire(import.meta.url);
 const { version: TYMPAN_VERSION } = require('../package.json');
@@ -82,7 +82,7 @@ export function buildTaggedXmp(opts = {}) {
     `   <pdf:Producer>${xmlEscape(producer)}</pdf:Producer>`,
     `   <xmp:CreateDate>${TAGGED_XMP_DATE}</xmp:CreateDate>`,
     `   <xmp:ModifyDate>${TAGGED_XMP_DATE}</xmp:ModifyDate>`,
-    `   <pdfuaid:pdfuaid>${PDF_UA_VERSION}</pdfuaid:pdfuaid>`,
+    `   <pdfuaid:part>${PDF_UA_VERSION}</pdfuaid:part>`,
     '  </rdf:Description>',
     ' </rdf:RDF>',
     '</x:xmpmeta>',
@@ -126,6 +126,36 @@ export function applyTaggedTail(doc, opts = {}) {
     )
   );
   doc.catalog.set(PDFName.of('Metadata'), xmpRef);
+
+  // PDF/UA-1 7.18: every visible link annotation carries an alternate
+  // description. Chromium's print emits Link annots with no Contents and no
+  // Alt entry, so the annotation fails both 7.18.1 and 7.18.5 even though
+  // its target is right there in the annotation dictionary. The least-
+  // invented description is the one the document already carries — the
+  // link's own URI — and that is what this writes. A richer description
+  // (the link's text) is the source's to give; nothing here is synthesized.
+  for (const page of doc.getPages()) {
+    const annotsRef = page.node.get(PDFName.of('Annots'));
+    if (!(annotsRef instanceof PDFRef) && !(annotsRef instanceof PDFArray)) continue;
+    const annots = annotsRef instanceof PDFRef ? doc.context.lookup(annotsRef, PDFArray) : annotsRef;
+    if (!annots) continue;
+    for (let i = 0; i < annots.size(); i++) {
+      const annot = annots.get(i);
+      const dict = annot instanceof PDFRef ? doc.context.lookupMaybe(annot, PDFDict) : annot instanceof PDFDict ? annot : null;
+      if (!dict) continue;
+      if (String(dict.get(PDFName.of('Subtype'))) !== '/Link') continue;
+      const contents = dict.get(PDFName.of('Contents'));
+      if (contents && String(contents).trim() !== '()') continue;
+      const action = dict.get(PDFName.of('A'));
+      const actionDict = action instanceof PDFRef ? doc.context.lookupMaybe(action, PDFDict) : action instanceof PDFDict ? action : null;
+      const uri = actionDict ? actionDict.get(PDFName.of('URI')) : null;
+      // /URI arrives as a text string value; anything else is skipped rather
+      // than guessed.
+      const uriText = uri instanceof PDFString || uri instanceof PDFHexString ? uri.asString() : null;
+      if (!uriText) continue;
+      dict.set(PDFName.of('Contents'), PDFString.of(uriText));
+    }
+  }
 }
 
 /**
@@ -148,7 +178,7 @@ export function inspectTagged(bytes) {
   const langMatch = text.match(/\/Lang\s*\(([^)]*)\)/);
   const lang = langMatch ? langMatch[1].trim() || null : null;
   const displayDocTitle = /\/ViewerPreferences\s*<<(?:[^>]|\n){0,120}\/DisplayDocTitle\s+true/.test(text);
-  const uaMatch = text.match(/<pdfuaid:pdfuaid>\s*([^<\s]+)/);
+  const uaMatch = text.match(/<pdfuaid:part>\s*([^<\s]+)/);
   const uaId = uaMatch ? uaMatch[1] : null;
   const producerMatch = text.match(/<pdf:Producer>([^<]+)<\/pdf:Producer>/);
   const xmpProducer = producerMatch ? producerMatch[1] : null;
