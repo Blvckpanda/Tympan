@@ -72,7 +72,7 @@ All notable changes to this project are documented here. The format is based on
   extraction — the byte win the plan measured (2.9x) is what `--flow`'s
   single print achieves (3.2x measured).
 
-## [Unreleased]
+## [0.9.0] - 2026-11-04
 
 ### Added
 - **`tympan bytes` — the size instrument SPEC §4 Phase 2 hangs on.** Converts
