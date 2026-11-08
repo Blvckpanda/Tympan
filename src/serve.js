@@ -4,14 +4,20 @@
  * This is a SPIKE with production-shaped seams, and it is written to be honest
  * about which parts are which:
  *
- *   real      per-tenant API keys (timing-safe compare), per-tenant job
- *             isolation, a bounded queue with a worker pool, TTL retention,
- *             request size caps, and the same secure-by-default conversion
- *             path the CLI uses.
- *   NOT real  the key store (env var, not a database), the queue (memory, not
- *             a broker — a restart loses queued work), the result store (a
- *             temp directory, not object storage), and billing/quota
- *             accounting beyond a per-tenant job ceiling.
+ *   real      per-tenant API keys (timing-safe compare; hashed at rest and
+ *             persisted with `--state-dir`), per-tenant job isolation, a
+ *             bounded queue with a worker pool, TTL retention, request size
+ *             caps, the same secure-by-default conversion path the CLI
+ *             uses, and per-tenant metering (counted either way, persisted
+ *             with `--state-dir`).
+ *   NOT real  a database-backed key store (the state dir is still a
+ *             directory of JSON files), an external broker (durability
+ *             comes from the state dir's journal; a crash can still lose
+ *             work visible only in memory of a killed process between
+ *             transitions — the boundary the docs name), object storage
+ *             for results (a payload dir, scoped by the operator's state
+ *             dir), plans and invoices, rate limits beyond the
+ *             per-tenant ceiling and the fair-share order of FIFO.
  *
  * Two decisions worth stating because they are the difference between an API
  * and an SSRF proxy:
@@ -32,6 +38,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { convert, resolveGeometry } from './pipeline.js';
 import { formatQualityLine } from './metrics.js';
+import {
+  openServeState,
+  hashKey,
+  emptyMeterRow,
+  meterJobUpdate,
+  STATE_VERSION,
+} from './serve-state.js';
 
 /** Default listen port for `tympan serve`. */
 export const SERVE_DEFAULT_PORT = 8080;
@@ -91,24 +104,42 @@ export function parseApiKeys(spec) {
  * The comparison is timing-safe and runs over every key, so a wrong key takes
  * the same time regardless of how much of a real key it happens to match.
  * Pure (no I/O), so the whole contract is unit-tested.
+ *
+ * `hashedKeys` (sha256 hex → tenant) is the persisted store's contribution:
+ * records loaded from the state dir never carry plaintext, so their compare
+ * happens over equal-length hex digests. A presented key is hashed once and
+ * compared against each record — the same constant-time discipline as the
+ * plaintext set.
  * @param {Record<string, string|undefined>} headers
- * @param {Map<string, string>} keys
+ * @param {Map<string, string>} keys plaintext key → tenant (env-sourced)
+ * @param {Map<string, string>} [hashedKeys] sha256 hex → tenant (store-sourced)
  * @returns {{ok: true, tenant: string}|{ok: false, reason: string}}
  */
-export function authorize(headers, keys) {
+export function authorize(headers, keys, hashedKeys) {
   const h = headers || {};
   const auth = h.authorization || h.Authorization || '';
   const bearer = /^Bearer\s+(.+)$/i.exec(String(auth));
   const presented = (bearer ? bearer[1] : h['x-api-key'] || h['X-Api-Key'] || '').trim();
   if (!presented) return { ok: false, reason: 'missing API key (Authorization: Bearer <key> or x-api-key)' };
-  if (!keys || keys.size === 0) return { ok: false, reason: 'this server has no API keys configured' };
+  if ((!keys || keys.size === 0) && (!hashedKeys || hashedKeys.size === 0)) {
+    return { ok: false, reason: 'this server has no API keys configured' };
+  }
   const presentedBuf = Buffer.from(presented);
+  const presentedHash = Buffer.from(hashKey(presented));
   let matched = null;
-  for (const [key, tenant] of keys) {
-    const known = Buffer.from(key);
-    // Length is compared first (Buffer.compare would throw on a mismatch), but
-    // the value comparison is constant-time with respect to the key bytes.
-    if (known.length === presentedBuf.length && crypto.timingSafeEqual(known, presentedBuf)) matched = tenant;
+  if (keys) {
+    for (const [key, tenant] of keys) {
+      const known = Buffer.from(key);
+      // Length is compared first (Buffer.compare would throw on a mismatch), but
+      // the value comparison is constant-time with respect to the key bytes.
+      if (known.length === presentedBuf.length && crypto.timingSafeEqual(known, presentedBuf)) matched = tenant;
+    }
+  }
+  if (hashedKeys) {
+    for (const [hash, tenant] of hashedKeys) {
+      const known = Buffer.from(hash);
+      if (known.length === presentedHash.length && crypto.timingSafeEqual(known, presentedHash)) matched = tenant;
+    }
   }
   if (!matched) return { ok: false, reason: 'invalid API key' };
   return { ok: true, tenant: matched };
@@ -199,17 +230,24 @@ export function publicJob(job, baseUrl = '') {
  * is what "the queue is full" means to the client that gets the 429 — and the
  * worker pool keeps at most `concurrency` jobs in flight.
  *
- * @param {object} opts { concurrency, run(job), maxQueued }
+ * @param {object} opts { concurrency, run(job), maxQueued, onStatus(job) }
+ *   `onStatus` fires after every status transition (running/done/failed) —
+ *   the durable queue's journal point when serve has a state dir.
  */
-export function createJobQueue({ concurrency = 2, run, maxQueued = 32 } = {}) {
+export function createJobQueue({ concurrency = 2, run, maxQueued = 32, onStatus } = {}) {
   const pending = [];
   let active = 0;
+  let stopped = false;
+  const note = (job) => {
+    if (onStatus) onStatus(job);
+  };
   const waiters = [];
   const settle = () => {
     const waiting = waiters.splice(0);
     for (const resolve of waiting) resolve();
   };
   const pump = () => {
+    if (stopped) return;
     while (active < concurrency && pending.length) {
       const job = pending.shift();
       active++;
@@ -217,16 +255,19 @@ export function createJobQueue({ concurrency = 2, run, maxQueued = 32 } = {}) {
         .then(() => {
           job.status = 'running';
           job.startedAt = new Date().toISOString();
+          note(job);
           return run(job);
         })
         .then(
           (result) => {
             job.status = 'done';
             job.result = result;
+            note(job);
           },
           (error) => {
             job.status = 'failed';
             job.error = (error && error.message) || String(error);
+            note(job);
           }
         )
         .finally(() => {
@@ -247,6 +288,15 @@ export function createJobQueue({ concurrency = 2, run, maxQueued = 32 } = {}) {
       pending.push(job);
       pump();
       return true;
+    },
+    /**
+     * Halt the pump: pending jobs stay pending (and, with a state dir, stay
+     * journalled for the next start). In-flight conversions are not killed —
+     * their journal row is already 'running', so a restart re-runs them.
+     */
+    stop() {
+      stopped = true;
+      settle();
     },
     /** Resolves when nothing is queued or running (tests and graceful stop). */
     idle() {
@@ -269,18 +319,48 @@ export function createJobQueue({ concurrency = 2, run, maxQueued = 32 } = {}) {
  *   maxJobsPerTenant?: number
  *   convertImpl?: Function        injected for tests (default: the real convert)
  *   workdir?: string              where result PDFs live
- * @returns {Promise<{url, port, close(), jobs: Map, stats(), queue()}>}
+ *   stateDir?: string             opt-in durable state (keys, job journal, meter)
+ * @returns {Promise<{url, port, close(), jobs: Map, stats(), queue(), meter()}>}
  */
 export async function createServeServer(options = {}) {
+  const state = options.stateDir ? openServeState(options.stateDir) : null;
   const keys = options.keys || parseApiKeys(process.env.TYMPAN_KEYS);
+  // The persisted store contributes hashed records; env-configured keys are
+  // also written to it (hashed, idempotently) so a configured key stays valid
+  // across restarts, which is the point of a durable key store.
+  const hashedKeys = new Map();
+  if (state) {
+    for (const rec of state.loadKeys()) hashedKeys.set(rec.hash, rec.tenant);
+    for (const [secret, tenant] of keys) {
+      const hash = hashKey(secret);
+      const existing = state.loadKeys().find((r) => r.hash === hash);
+      if (existing && existing.tenant !== tenant) {
+        state.revokeKey(hash);
+        state.addKey(hash, tenant);
+      } else {
+        state.addKey(hash, tenant);
+      }
+      hashedKeys.set(hash, tenant);
+    }
+  }
   const concurrency = Number(options.concurrency ?? process.env.TYMPAN_SERVE_CONCURRENCY ?? 2);
   const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
   const maxJobsPerTenant = options.maxJobsPerTenant ?? MAX_JOBS_PER_TENANT;
   const maxBody = options.maxBodyBytes ?? MAX_BODY_BYTES;
   const convertImpl = options.convertImpl || convert;
-  const workdir = options.workdir || fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-serve-'));
-  const ownsWorkdir = !options.workdir;
+  // With a state dir the payloads ARE the durable store: submitted HTML and
+  // result PDFs sit beside the journal and survive the process.
+  const workdir =
+    options.workdir ||
+    (state ? path.join(state.dir, 'payloads') : fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-serve-')));
+  const ownsWorkdir = !options.workdir && !state;
   const jobs = new Map();
+  const meter = state ? state.loadMeter() : { version: STATE_VERSION, tenants: {} };
+
+  const meterRowFor = (tenant) => ({ ...emptyMeterRow(), ...(meter.tenants[tenant] || {}) });
+  const meterPersist = () => {
+    if (state) state.saveMeter(meter);
+  };
 
   const runJob = async (job) => {
     const out = path.join(workdir, `${job.id}.pdf`);
@@ -311,7 +391,54 @@ export async function createServeServer(options = {}) {
     return job.report;
   };
 
-  const queue = createJobQueue({ concurrency, run: runJob, maxQueued: maxJobsPerTenant * 4 });
+  const queue = createJobQueue({
+    concurrency,
+    run: runJob,
+    maxQueued: maxJobsPerTenant * 4,
+    // The journal point: every transition is written (or the in-memory meter
+    // is bumped and persisted) before the next state is observable.
+    onStatus(job) {
+      const row = meterRowFor(job.tenant);
+      if (job.status === 'done' || job.status === 'failed') {
+        meter.tenants[job.tenant] = meterJobUpdate(row, job, job.report);
+        meterPersist();
+      }
+      if (state) state.saveJob(job);
+    },
+  });
+
+  // Restart recovery: rebuild the map from the journal, re-queue incomplete
+  // work (a 'running' job is re-run — at-least-once, and the conversion is
+  // idempotent for its inputs), and fail honestly what lost its bytes.
+  if (state) {
+    for (const persisted of state.loadJobs()) {
+      const job = { ...persisted, progress: [], htmlPath: null, pdfPath: null };
+      if (job.input && job.input.kind === 'html') {
+        if (state.payloadExists(job.id, 'html')) job.htmlPath = state.payloadPath(job.id, 'html');
+        else if (job.status === 'queued' || job.status === 'running') {
+          job.status = 'failed';
+          job.finishedAt = new Date().toISOString();
+          job.error = 'payload lost on restart (submitted html was not on disk)';
+          state.saveJob(job);
+        }
+      }
+      if (job.status === 'done') {
+        if (state.payloadExists(job.id, 'pdf')) job.pdfPath = state.payloadPath(job.id, 'pdf');
+        else {
+          job.status = 'failed';
+          job.error = job.error || 'result lost on restart (the PDF was not on disk)';
+          state.saveJob(job);
+        }
+      }
+      jobs.set(job.id, job);
+    }
+    for (const job of jobs.values()) {
+      if (job.status === 'queued' || job.status === 'running') {
+        job.status = 'queued';
+        queue.enqueue(job);
+      }
+    }
+  }
 
   const countFor = (tenant) => [...jobs.values()].filter((j) => j.tenant === tenant).length;
   const sweep = () => {
@@ -320,7 +447,9 @@ export async function createServeServer(options = {}) {
       if (!job.finishedAt) continue;
       if (now - Date.parse(job.finishedAt) < ttlMs) continue;
       if (job.pdfPath && fs.existsSync(job.pdfPath)) fs.rmSync(job.pdfPath, { force: true });
+      if (job.htmlPath && fs.existsSync(job.htmlPath)) fs.rmSync(job.htmlPath, { force: true });
       jobs.delete(id);
+      if (state) state.dropJob(id);
     }
   };
   const sweeper = setInterval(sweep, Math.max(1000, Math.floor(ttlMs / 4)));
@@ -381,7 +510,13 @@ export async function createServeServer(options = {}) {
         return;
       }
 
-      const auth = authorize(req.headers, keys);
+      // Read live: a revocation written by `serve keys revoke` refuses the
+      // very next request. The file is a handful of rows; one read per
+      // request is cheaper than a restart to rotate a key.
+      const effectiveHashed = state
+        ? new Map(state.loadKeys().map((r) => [r.hash, r.tenant]))
+        : hashedKeys;
+      const auth = authorize(req.headers, keys, effectiveHashed);
       if (!auth.ok) {
         res.setHeader('www-authenticate', 'Bearer realm="tympan"');
         json(res, 401, { error: auth.reason });
@@ -395,6 +530,7 @@ export async function createServeServer(options = {}) {
           maxJobs: maxJobsPerTenant,
           concurrency,
           retentionMs: ttlMs,
+          meter: meterRowFor(auth.tenant),
           engine: process.version,
         });
         return;
@@ -442,8 +578,13 @@ export async function createServeServer(options = {}) {
           job.input.bytes = Buffer.byteLength(valid.input.value);
         }
         jobs.set(id, job);
+        const row = meterRowFor(auth.tenant);
+        meter.tenants[auth.tenant] = { ...row, submitted: row.submitted + 1 };
+        meterPersist();
+        if (state) state.saveJob(job);
         if (!queue.enqueue(job)) {
           jobs.delete(id);
+          if (state) state.dropJob(id);
           json(res, 503, { error: 'queue is full', hint: 'retry shortly' });
           return;
         }
@@ -484,7 +625,9 @@ export async function createServeServer(options = {}) {
         }
         if (req.method === 'DELETE') {
           if (job.pdfPath && fs.existsSync(job.pdfPath)) fs.rmSync(job.pdfPath, { force: true });
+          if (job.htmlPath && fs.existsSync(job.htmlPath)) fs.rmSync(job.htmlPath, { force: true });
           jobs.delete(job.id);
+          if (state) state.dropJob(job.id);
           json(res, 200, { id: job.id, deleted: true });
           return;
         }
@@ -514,9 +657,14 @@ export async function createServeServer(options = {}) {
     jobs,
     stats: () => ({ ...queue.stats(), jobs: jobs.size, tenants: new Set([...jobs.values()].map((j) => j.tenant)).size }),
     queue: () => queue,
+    /** Meter summary for one tenant (or all). Read-only; the file is the record. */
+    meter: (tenant) => (tenant ? meterRowFor(tenant) : Object.fromEntries(Object.keys(meter.tenants).map((t) => [t, meterRowFor(t)]))),
     async close() {
       clearInterval(sweeper);
+      queue.stop();
       await new Promise((resolve) => server.close(resolve));
+      // A temp workdir is the server's to clean; an operator-named state dir is
+      // NOT: its journal is what makes the next start a restart, not a reset.
       if (ownsWorkdir) fs.rmSync(workdir, { recursive: true, force: true });
     },
   };
@@ -535,5 +683,6 @@ export function servePolicy(options = {}) {
     maxJobsPerTenant: options.maxJobsPerTenant ?? MAX_JOBS_PER_TENANT,
     maxBodyBytes: options.maxBodyBytes ?? MAX_BODY_BYTES,
     offline: !!options.offline,
+    stateDir: options.stateDir ?? null,
   };
 }

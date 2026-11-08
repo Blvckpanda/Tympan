@@ -177,6 +177,7 @@ The pitch as a card (also the repo's social preview — [1280×640](assets/socia
 | `strict` | off | `tympan lint`: treat warnings as failures (`--strict`) |
 | `port` | `4319` | `tympan preview`: port to listen on (0 picks a free one) |
 | `concurrency` | `2` | `tympan serve`: jobs in flight (`--concurrency`, env `TYMPAN_SERVE_CONCURRENCY`) |
+| `stateDir` | none | `tympan serve`: opt-in durable state — hashed keys, job journal, meter (`--state-dir`, env `TYMPAN_SERVE_STATE_DIR`) |
 
 Diagnostics: `tympan doctor` checks the environment (Node version, exact
 playwright pin vs installed, Chromium, ffmpeg) and exits non-zero on failure;
@@ -575,10 +576,26 @@ docker build -t tympan . && docker run --rm -p 8080:8080 -e TYMPAN_KEYS=... tymp
 ```
 
 It is a **spike with production-shaped seams**, and [docs/SERVE.md](docs/SERVE.md)
-says exactly which parts are which: the key store is an environment variable,
-the queue is memory (a restart loses queued work), results are a temp directory,
-and there is no metering or billing — followed by what a paid tier would need
-before charging anyone.
+says exactly which parts are which. Give it a state directory and three of those
+seams turn durable (no database, no broker, no new dependencies — a directory of
+JSON files with atomic writes):
+
+```bash
+tympan serve --state-dir /var/lib/tympan --port 8080   # durable mode
+tympan serve keys add key_live_abc:acme --state-dir /var/lib/tympan
+tympan serve keys list --state-dir /var/lib/tympan     # fingerprints, never keys
+tympan serve keys revoke <key|hash-prefix> --state-dir /var/lib/tympan
+```
+
+Keys are stored as sha256 digests and a revocation refuses the next request;
+the job journal re-queues incomplete work after a restart (at-least-once — a
+job that lost its payload or PDF fails with the reason, not a hang); and every
+tenant's meter (submitted/succeeded/failed jobs, pages, bytes, convert ms) is
+counted always and persisted with the state dir, visible on `GET /v1/me`.
+Without `--state-dir` nothing is written to disk: a server that creates
+directories the operator did not name is worse than a spike. Still absent by
+decision: a database, an external broker, object storage, plans and invoices —
+what remains for a paid tier is in [docs/SERVE.md](docs/SERVE.md).
 
 ## How is this different from Playwright / Gotenberg / WeasyPrint?
 

@@ -205,9 +205,18 @@ the letter of the spec, the deviation and its reason are recorded here.
   drawn, measured by the printer's own code path (a test pins that the preview
   and the converter agree page for page).
 - `tympan serve` (Phase 4 sketch, §5) exists as a spike with per-tenant keys, a
-  bounded queue and a Dockerfile — deliberately NOT a hosted product: keys live
-  in an environment variable, the queue is memory, and there is no metering.
-  [docs/SERVE.md](docs/SERVE.md) lists what a paid tier still needs. The §6
+  bounded queue and a Dockerfile — deliberately NOT a hosted product. Its
+  production-shaped seams shipped 2026-11-07 behind one opt-in flag,
+  `--state-dir` (env `TYMPAN_SERVE_STATE_DIR`): keys hashed at rest with live
+  revocation (`serve keys add/list/revoke`), a job journal under `jobs/` whose
+  incomplete rows are re-queued on restart (at-least-once; a job whose payload
+  or result vanished fails with the reason, never hangs), and per-tenant
+  metering (submitted/succeeded/failed, pages, bytes, convert ms) persisted to
+  `meter.json` and reported on `/v1/me`. Deliberately still absent — and this
+  is the decided boundary, not a TODO — a database, an external broker and
+  object storage: the state is a directory of JSON files, atomic writes
+  (tmp+rename), zero new dependencies, single machine. [docs/SERVE.md](docs/SERVE.md)
+  names the remaining paid-tier work (plans, invoicing, fair-share, audit). The §6
   quality-bar items this makes measurable — published per-release numbers on a
   corpus — are now real: `scripts/corpus.mjs` writes
   [docs/BENCHMARKS.md](docs/BENCHMARKS.md). §6's "200+ real documents" remains

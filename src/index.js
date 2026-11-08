@@ -80,6 +80,14 @@ export {
   servePolicy,
   jobGeometry,
 } from './serve.js';
+export {
+  STATE_VERSION,
+  openServeState,
+  hashKey,
+  keyFingerprint,
+  emptyMeterRow,
+  meterJobUpdate,
+} from './serve-state.js';
 export { enginePin, doctorChecks, summarizeDoctor, runDoctor, formatDoctorReport } from './doctor.js';
 export { buildJsonReport, buildBatchJsonReport } from './report.js';
 export { isGlobPattern, isUrlInput, matchGlob, expandGlob, expandInputs } from './glob.js';

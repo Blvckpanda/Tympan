@@ -13,12 +13,12 @@ TYMPAN_KEYS="key_live_abc:acme,key_test_xyz:demo" tympan serve --port 8080
 
 | | today | before this is a product |
 |---|---|---|
-| **Auth** | per-tenant API keys from `TYMPAN_KEYS`, timing-safe compare, empty key store = no access | keys hashed at rest, in a database, with rotation and revocation |
+| **Auth** | per-tenant API keys (timing-safe, sha256 at rest); with `--state-dir` the store is persistent and revocation is live; empty key store = no access | a database with audit trails and per-key scopes and expiry |
 | **Isolation** | a key sees only its own jobs (404, not 403, for someone else's id) | — |
-| **Queue** | bounded FIFO, worker pool, `concurrency` jobs in flight, per-tenant ceiling | a durable broker: a restart currently loses queued work |
-| **Results** | PDFs + submitted HTML in a temp dir, deleted with the job | object storage with lifecycle rules |
-| **Retention** | TTL (default 15 min) swept by a timer; `DELETE /v1/jobs/:id` releases early | configurable per plan, audited |
-| **Quota/billing** | a per-tenant job ceiling only | metering, plans, invoices |
+| **Queue** | bounded FIFO, worker pool, `concurrency` jobs in flight, per-tenant ceiling; with `--state-dir` a journal re-queues incomplete work on restart (at-least-once) | an external broker with cross-machine scheduling |
+| **Results** | PDFs + submitted HTML in a temp dir, deleted with the job; with `--state-dir` they live under `payloads/` and survive the process | object storage with lifecycle rules |
+| **Retention** | TTL (default 15 min) swept by a timer; `DELETE /v1/jobs/:id` releases early; the journal row is dropped with the bytes | configurable per plan, audited |
+| **Quota/billing** | a per-tenant job ceiling, plus a per-tenant meter (submitted/succeeded/failed, pages, bytes, convert ms) counted always, persisted with `--state-dir`, reported on `/v1/me` | plans, invoices, fair-share scheduling |
 | **Observability** | `/healthz`, one log line per start | request logs, metrics, traces |
 
 It is a spike with production-shaped seams, and the seams are the part worth
@@ -38,6 +38,43 @@ reviewing: they are where a paid tier's hard questions live.
 Both are pinned by tests (`test/serve.test.mjs`), including the negative: a job
 submitted with `options.allowNet = ['*']` reaches the converter with no
 `allowNet` at all.
+
+## Durable mode: `--state-dir`
+
+Opt-in, because a CLI server that creates directories the operator did not name
+is worse than a spike. With `--state-dir <dir>` (env `TYMPAN_SERVE_STATE_DIR`)
+the dir holds exactly four kinds of thing, every write atomic (`.tmp` + rename):
+
+```
+<state-dir>/tenants.json   sha256 digests + tenant names — never a plaintext key
+<state-dir>/jobs/<id>.json one journal row per accepted job; no payload, no paths
+<state-dir>/payloads/      submitted HTML and finished PDFs (<id>.html, <id>.pdf)
+<state-dir>/meter.json     per-tenant counters, rewritten on every job finish
+```
+
+```bash
+tympan serve --state-dir /var/lib/tympan
+tympan serve keys add key_live_abc:acme --state-dir /var/lib/tympan
+tympan serve keys list --state-dir /var/lib/tympan
+tympan serve keys revoke 3f9a1c2d --state-dir /var/lib/tympan   # hash prefix works
+```
+
+**Restart semantics, stated rather than implied.** On boot the journal is read
+and every `queued` or `running` row is re-queued: a job accepted but not
+finished by the previous process is converted by this one — at-least-once. A
+`running` row is re-run because a killed conversion has no trustworthy partial
+output. If a row's HTML payload or PDF is not on disk, the job becomes `failed`
+with that reason (`payload lost on restart` / `result lost on restart`) rather
+than hanging or 500ing later. `TYMPAN_KEYS` keys are persisted (hashed) at
+start, so both sources authorize; the store is re-read per request, so a
+revocation refuses the very next call. The meter is the record, not the
+response: `DELETE` releases bytes without rewriting accounting, and the TTL
+sweep drops journal rows like it drops PDFs.
+
+**The shapes deliberately not chosen** (recorded in SPEC §6): a database, an
+external broker, object storage — each is a component to operate, and none is
+what this tier is for. A directory of small JSON files is the whole durability
+story, and it needs no dependency the project does not already ship.
 
 ## API
 
@@ -89,15 +126,20 @@ correctness guard, not a substitute for one.
 |---|---|
 | `TYMPAN_KEYS` | `key:tenant` pairs, comma separated. Required; no keys means no access |
 | `TYMPAN_SERVE_CONCURRENCY` | jobs in flight (default 2; `--concurrency` overrides) |
+| `TYMPAN_SERVE_STATE_DIR` | opt-in durable state dir (`--state-dir` overrides); absent = pure spike, nothing written |
 | `TYMPAN_CHROMIUM` | path to a Chrome/Chromium executable (else the Playwright cache) |
 
 ## What a paid tier would need before charging anyone
 
-1. Keys in a database, hashed, with rotation and per-key scopes.
-2. A durable queue and object storage, so a restart is not data loss.
-3. Metering per tenant (pages rendered, CPU seconds), then plans and invoices.
+1. ~~Keys hashed at rest with rotation and revocation~~ — shipped at file
+   level (`tenants.json`, `serve keys`); the database and per-key scopes are
+   still ahead.
+2. ~~A queue a restart does not lose~~ — shipped as an at-least-once journal
+   (`jobs/`); object storage for results is still ahead.
+3. ~~Metering per tenant~~ — shipped (jobs by outcome, pages, bytes, convert
+   ms, on `/v1/me`); plans and invoices are still ahead.
 4. Per-tenant rate limits and a fair-share scheduler, so one tenant cannot
-   starve another.
+   starve another (today: FIFO and a per-tenant ceiling).
 5. Request logs with tenant attribution and retention, and an abuse path for a
    tenant submitting hostile HTML or URLs.
 6. A pricing question answered with the corpus numbers (`docs/BENCHMARKS.md`):

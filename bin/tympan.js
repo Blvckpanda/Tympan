@@ -111,6 +111,11 @@ tympan serve (HTTP API - the first slice of a hosted tier):
   --port <n>           Port to listen on (default 8080; 0 picks a free one)
   --concurrency <n>    Jobs in flight (default 2, env TYMPAN_SERVE_CONCURRENCY)
   --offline            Block every outbound request for every job
+  --state-dir <dir>    Opt-in durable state (env TYMPAN_SERVE_STATE_DIR): keys
+                       hashed at rest, a job journal re-queued on restart,
+                       and per-tenant metering that survives the process
+  tympan serve keys add <key:tenant> | list | revoke <key|hash-prefix>
+                       Manage the durable key store (needs --state-dir)
 
 tympan preview (see where the cut will fall, before converting):
   Measures the document the way the printer does - its own clean template, its
@@ -190,6 +195,7 @@ const SPEC = {
     '--target-fill',
     '--port',
     '--concurrency',
+    '--state-dir',
     '--layout',
     '--fill',    '--page-footer',
     '--preset',
@@ -534,6 +540,53 @@ if (positionals[0] === 'doctor') {
 // -------------------------------------------------------------- serve
 if (positionals[0] === 'serve') {
   const { createServeServer, parseApiKeys, servePolicy, SERVE_DEFAULT_PORT } = await import('../src/serve.js');
+  const { openServeState, hashKey, keyFingerprint } = await import('../src/serve-state.js');
+  let stateDir = args.has('--state-dir') ? args.value('--state-dir') : process.env.TYMPAN_SERVE_STATE_DIR || null;
+  if (args.has('--state-dir') && !String(stateDir || '').trim()) {
+    usageError('--state-dir expects a directory');
+  }
+  if (positionals[1] === 'keys') {
+    const sub = positionals[2];
+    if (!stateDir) {
+      usageError('serve keys needs --state-dir <dir> (or TYMPAN_SERVE_STATE_DIR): the store must live where the operator names it');
+    }
+    const store = openServeState(stateDir);
+    if (sub === 'add') {
+      const pair = positionals[3];
+      const idx = typeof pair === 'string' ? pair.indexOf(':') : -1;
+      if (idx <= 0 || idx === pair.length - 1) {
+        usageError('serve keys add expects <key:tenant>, e.g. key_live_abc:acme');
+      }
+      const hash = hashKey(pair.slice(0, idx).trim());
+      const tenant = pair.slice(idx + 1).trim();
+      const added = store.addKey(hash, tenant);
+      console.error(`tympan serve keys: ${added ? 'added' : 'already present'} ${keyFingerprint(hash)} -> ${tenant}`);
+    } else if (sub === 'list') {
+      const keys = store.loadKeys();
+      if (!keys.length) {
+        console.error(`tympan serve keys: no keys in ${stateDir}`);
+      }
+      for (const rec of keys) {
+        console.error(`${keyFingerprint(rec.hash)}  ${rec.tenant}  ${rec.createdAt}`);
+      }
+    } else if (sub === 'revoke') {
+      const arg = String(positionals[3] || '').trim();
+      if (!arg) usageError('serve keys revoke expects the key itself or a hash prefix (8+ hex chars)');
+      const keys = store.loadKeys();
+      const direct = hashKey(arg);
+      let targets = keys.filter((k) => k.hash === direct);
+      if (!targets.length && /^[0-9a-f]{8,}$/i.test(arg)) {
+        targets = keys.filter((k) => k.hash.startsWith(arg.toLowerCase()));
+      }
+      if (!targets.length) fail(`no key in ${stateDir} matches that key or hash prefix`);
+      if (targets.length > 1) fail(`hash prefix matches ${targets.length} keys; give more characters`);
+      store.revokeKey(targets[0].hash);
+      console.error(`tympan serve keys: revoked ${keyFingerprint(targets[0].hash)} -> ${targets[0].tenant}`);
+    } else {
+      usageError('serve keys expects add, list or revoke');
+    }
+    process.exit(0);
+  }
   let port = SERVE_DEFAULT_PORT;
   if (args.has('--port')) {
     port = Number(args.value('--port'));
@@ -549,18 +602,21 @@ if (positionals[0] === 'serve') {
     }
   }
   const keys = parseApiKeys(process.env.TYMPAN_KEYS);
-  if (keys.size === 0) {
-    fail('no API keys configured. Set TYMPAN_KEYS="key:tenant,key2:tenant2" (one pair per tenant).');
+  const storedKeys = stateDir ? openServeState(stateDir).loadKeys().length : 0;
+  if (keys.size === 0 && storedKeys === 0) {
+    fail(
+      'no API keys configured. Set TYMPAN_KEYS="key:tenant,key2:tenant2", or add one with `tympan serve keys add key:tenant --state-dir <dir>`.'
+    );
   }
-  const policy = servePolicy({ concurrency, offline: args.has('--offline') });
+  const policy = servePolicy({ concurrency, offline: args.has('--offline'), stateDir });
   let serve;
   try {
-    serve = await createServeServer({ port, concurrency, offline: args.has('--offline') });
+    serve = await createServeServer({ port, concurrency, offline: args.has('--offline'), stateDir });
   } catch (e) {
     fail(e && e.message ? e.message : String(e));
   }
   console.error(
-    `tympan serve: ${serve.url} - ${keys.size} tenant key(s), concurrency ${policy.concurrency}, retention ${Math.round(policy.ttlMs / 60000)} min${policy.offline ? ', offline' : ''}`
+    `tympan serve: ${serve.url} - ${keys.size + storedKeys} tenant key(s), concurrency ${policy.concurrency}, retention ${Math.round(policy.ttlMs / 60000)} min${policy.offline ? ', offline' : ''}${stateDir ? `, state ${stateDir}` : ''}`
   );
   console.error('  GET /healthz  GET /v1/me  POST /v1/jobs  GET /v1/jobs/:id  GET /v1/jobs/:id/pdf');
   const shutdown = async () => {

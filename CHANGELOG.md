@@ -7,6 +7,26 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `tympan serve --state-dir` turns three documented spike gaps into durable,
+  single-machine seams, with zero new dependencies (a directory of JSON files,
+  every write atomic via tmp+rename). Keys are stored as sha256 digests in
+  `tenants.json` — the plaintext never reaches disk — with `tympan serve keys
+  add|list|revoke` (list shows fingerprints; a revocation refuses the next
+  request because the store is re-read per call). The job journal under
+  `jobs/` re-queues incomplete work after a restart: queued and running rows
+  are converted by the next process (at-least-once), rows whose HTML payload
+  or result PDF is gone fail with that reason instead of hanging ("payload
+  lost on restart" / "result lost on restart"), and finished jobs are served
+  from `payloads/`. Metering counts every tenant always — submitted, succeeded
+  and failed jobs, pages, bytes, convert milliseconds — persisted in
+  `meter.json` and reported on `GET /v1/me`, with `DELETE` releasing bytes
+  without rewriting accounting. Without `--state-dir` nothing touches disk:
+  the spike behaves exactly as before. SPEC §6 records why a database, broker
+  and object storage were deliberately not chosen, docs/SERVE.md names the
+  restart semantics and what remains for a paid tier. Tests: an accepted job
+  finishes on the next process (HTML payload included), lost payloads/results
+  fail with the reason, keys persist and revoke (CLI included), the meter
+  counts failures and survives restart; 8 new tests.
 - `--pdfa`, with `--flow`: PDF/A-2b-shaped archive output, carried by real
   data and zero new dependencies. The catalog gets a GTS_PDFA1 OutputIntent
   bound to the 456-byte CC0 sRGB v2 characterization embedded verbatim from
