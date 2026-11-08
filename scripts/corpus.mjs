@@ -391,6 +391,11 @@ export function renderMarkdown({ meta, totals, results, groups, times, appendix,
   lines.push('  tail, so their pages and fill should track flow; bytes and render time are');
   lines.push('  where the tail itself shows. Fill is the converter\'s DOM measurement in');
   lines.push('  every mode — the tail changes the PDF, not the layout.');
+  lines.push('- **Bytes are the default shape: no size pass.** This run does not pass');
+  lines.push('  `--minify` — it is opt-in on the CLI — so every byte figure here is the');
+  lines.push('  file a plain conversion writes. The size pass packs the tagged structure');
+  lines.push('  tree into object streams and shrinks it a lot; measure with `--minify`');
+  lines.push('  before quoting a final byte count to a user.');
   if (appendix && String(appendix).trim()) {
     lines.push('');
     lines.push(String(appendix).trim());

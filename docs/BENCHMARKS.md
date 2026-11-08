@@ -36,10 +36,17 @@ evidence rather than a preference.
 
 **What the standards tails cost.** `tagged` reports exactly the flow layout
 numbers (149 pages, 65% mean fill) and 4.4 MB against flow's 2.4 MB — the
-structure tag tree costs +83% bytes on this corpus (a single sampled article:
-54,780 B to 77,619 B, same six font objects). `pdfa` reports the same layout
-numbers at 2.5 MB: the OutputIntent and XMP add ~4% over flow. Both flags are
-flow-only by design (SPEC §6), so these are their whole cost.
+structure tag tree costs +83% bytes on this corpus, unminified like every other
+figure here (a single sampled article: 54,780 B to 77,619 B, same six font
+objects). That cost is mostly packing, not content: the tree lands as thousands
+of plain struct dictionaries (2,812 on report-extreme, 2,495 on
+table-heavy-extreme), and the opt-in `--minify` pass folds those into
+compressed object streams — measured on those two samples, report-extreme
+514 KB to 149 KB and table-heavy-extreme 450 KB to 111 KB. Tagged still runs
+~2x flow after the pass on dense tables, so the tail's bytes are real but
+mostly recoverable. `pdfa` reports the same layout numbers at 2.5 MB: the
+OutputIntent and XMP add ~4% over flow. Both flags are flow-only by design
+(SPEC §6).
 
 **Comparability.** The section rows reproduce the 0.8.0 archived run exactly —
 340 pages, 41% mean fill, 329 under target, 3 shrunk, 6.7 MB — so this run
@@ -170,6 +177,11 @@ local assets is the next fidelity item.
   tail, so their pages and fill should track flow; bytes and render time are
   where the tail itself shows. Fill is the converter's DOM measurement in
   every mode — the tail changes the PDF, not the layout.
+- **Bytes are the default shape: no size pass.** This run does not pass
+  `--minify` — it is opt-in on the CLI — so every byte figure here is the
+  file a plain conversion writes. The size pass packs the tagged structure
+  tree into object streams and shrinks it a lot; measure with `--minify`
+  before quoting a final byte count to a user.
 
 ## Archived run — tympan 0.7.0, 2026-10-21 (kept verbatim from the previous generation)
 
