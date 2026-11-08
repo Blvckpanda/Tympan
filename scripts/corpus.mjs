@@ -34,8 +34,16 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const require = (await import('node:module')).createRequire(import.meta.url);
 const { version } = require('../package.json');
 
+/** The modes this corpus can be measured in, and the flags each stands for. */
+export const CORPUS_MODES = {
+  section: { flags: {}, label: 'section layout (default)' },
+  flow: { flags: { flow: true }, label: '`--flow`' },
+  tagged: { flags: { flow: true, tagged: true }, label: '`--flow --tagged`' },
+  pdfa: { flags: { flow: true, pdfa: true }, label: '`--flow --pdfa`' },
+};
+
 function parseArgs(argv) {
-  const out = { limit: null, json: 'docs/benchmarks.json', markdown: 'docs/BENCHMARKS.md', out: null, quiet: false, compare: null };
+  const out = { limit: null, json: 'docs/benchmarks.json', markdown: 'docs/BENCHMARKS.md', out: null, quiet: false, compare: null, modes: ['section'] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--limit') out.limit = Number(argv[++i]);
@@ -43,12 +51,21 @@ function parseArgs(argv) {
     else if (a === '--markdown') out.markdown = argv[++i];
     else if (a === '--out') out.out = argv[++i];
     else if (a === '--compare') out.compare = argv[++i];
+    else if (a === '--modes') {
+      const names = String(argv[++i] || '').split(',').map((m) => m.trim()).filter(Boolean);
+      const unknown = names.filter((m) => !CORPUS_MODES[m]);
+      if (!names.length || unknown.length) {
+        console.error(`--modes expects a comma list of: ${Object.keys(CORPUS_MODES).join(', ')} (got: ${argv[i]})`);
+        process.exit(2);
+      }
+      out.modes = [...new Set(names)];
+    }
     else if (a === '--quiet') out.quiet = true;
     else if (a === '--no-write') {
       out.json = null;
       out.markdown = null;
     } else if (a === '-h' || a === '--help') {
-      console.log('usage: node scripts/corpus.mjs [--limit n] [--json file] [--markdown file] [--out dir] [--compare file] [--quiet] [--no-write]');
+      console.log('usage: node scripts/corpus.mjs [--modes section,flow,tagged,pdfa] [--limit n] [--json file] [--markdown file] [--out dir] [--compare file] [--quiet] [--no-write]');
       process.exit(0);
     }
   }
@@ -59,41 +76,11 @@ const round = (n, d = 3) => Math.round(n * 10 ** d) / 10 ** d;
 const ms = (n) => `${Math.round(n)}ms`;
 const kb = (n) => `${(n / 1024).toFixed(0)}KB`;
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const corpusDir = path.join(ROOT, 'test', 'corpus');
-  const { files, hash, count } = writeCorpus(corpusDir);
-  const selected = args.limit ? files.slice(0, args.limit) : files;
-  const pdfDir = args.out || fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-corpus-'));
-  fs.mkdirSync(pdfDir, { recursive: true });
-
-  const geo = resolveGeometry({});
-  const started = Date.now();
-  // One warm browser for the whole run, and one timed convert() per document:
-  // the batch API is exercised elsewhere, and per-document time is a number
-  // this report has to have.
-  const browser = await chromium.launch(launchOptions({}));
-  const entries = [];
-  try {
-    for (let i = 0; i < selected.length; i++) {
-      const input = selected[i];
-      const t0 = Date.now();
-      try {
-        const result = await convert(input, {
-          out: path.join(pdfDir, path.basename(resolveOutputs(input, {}).master)),
-          browser,
-          verify: false,
-        });
-        entries.push({ input, ok: true, result, ms: Date.now() - t0 });
-        if (!args.quiet) process.stderr.write(`  [${i + 1}/${selected.length}] ${path.basename(input)} ${Date.now() - t0}ms\n`);
-      } catch (e) {
-        entries.push({ input, ok: false, error: (e && e.message) || String(e), ms: Date.now() - t0 });
-      }
-    }
-  } finally {
-    await browser.close();
-  }
-
+/**
+ * One mode's numbers from its per-document entries: the same per-document
+ * shape the report has always had, plus the rollups both mode tables need.
+ */
+function summarizeMode({ name, entries, geo }) {
   const results = entries.map((entry) => {
     const input = entry.input;
     const id = path.basename(input, '.html');
@@ -143,23 +130,8 @@ async function main() {
     overflowPages: sum(ok, 'overflow'),
     lintErrors: ok.reduce((n, r) => n + r.lint.errors, 0),
     lintWarnings: ok.reduce((n, r) => n + r.lint.warnings, 0),
-    totalMs: Date.now() - started,
+    totalMs: sum(results, 'ms'),
   };
-
-  const meta = {
-    tympan: version,
-    engine: enginePin().pinned,
-    installedEngine: enginePin().installed,
-    node: process.version,
-    platform: `${process.platform} ${os.arch()}`,
-    corpusHash: hash,
-    corpusDocuments: count,
-    measuredDocuments: selected.length,
-    date: new Date().toISOString().slice(0, 10),
-    layout: 'section',
-    geometry: { format: 'a4', orientation: 'portrait', margins: geo.margins },
-  };
-  const report = { meta, totals, results };
 
   const groups = {};
   for (const r of ok) {
@@ -175,6 +147,78 @@ async function main() {
     g.stranded += r.stranded;
   }
 
+  return { name, results, totals, groups, times, failedIds: failed.map((f) => f.id) };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const corpusDir = path.join(ROOT, 'test', 'corpus');
+  const { files, hash, count } = writeCorpus(corpusDir);
+  const selected = args.limit ? files.slice(0, args.limit) : files;
+  const pdfDir = args.out || fs.mkdtempSync(path.join(os.tmpdir(), 'tympan-corpus-'));
+  fs.mkdirSync(pdfDir, { recursive: true });
+
+  const geo = resolveGeometry({});
+  // One warm browser for the whole run, and one timed convert() per document
+  // per mode: every mode has to see the same engine in the same state, or the
+  // numbers are not comparable with each other.
+  const browser = await chromium.launch(launchOptions({}));
+  const modeRuns = [];
+  try {
+    for (const modeName of args.modes) {
+      const mode = CORPUS_MODES[modeName];
+      const modeDir = path.join(pdfDir, modeName);
+      fs.mkdirSync(modeDir, { recursive: true });
+      const entries = [];
+      for (let i = 0; i < selected.length; i++) {
+        const input = selected[i];
+        const t0 = Date.now();
+        try {
+          const base = path.basename(resolveOutputs(input, {}).master);
+          const name = modeName === 'section' ? base : `${path.basename(base, '.pdf')}-${modeName}.pdf`;
+          const result = await convert(input, {
+            out: path.join(modeDir, name),
+            browser,
+            verify: false,
+            ...mode.flags,
+          });
+          entries.push({ input, ok: true, result, ms: Date.now() - t0 });
+          if (!args.quiet) process.stderr.write(`  [${modeName} ${i + 1}/${selected.length}] ${path.basename(input)} ${Date.now() - t0}ms\n`);
+        } catch (e) {
+          entries.push({ input, ok: false, error: (e && e.message) || String(e), ms: Date.now() - t0 });
+        }
+      }
+      modeRuns.push(summarizeMode({ name: modeName, entries, geo }));
+    }
+  } finally {
+    await browser.close();
+  }
+
+  const baseline = modeRuns[0];
+  const { totals, results, groups, times } = baseline;
+  const failed = results.filter((r) => !r.ok);
+  const meta = {
+    tympan: version,
+    engine: enginePin().pinned,
+    installedEngine: enginePin().installed,
+    node: process.version,
+    platform: `${process.platform} ${os.arch()}`,
+    corpusHash: hash,
+    corpusDocuments: count,
+    measuredDocuments: selected.length,
+    date: new Date().toISOString().slice(0, 10),
+    layout: 'section',
+    modes: args.modes,
+    modeFlags: Object.fromEntries(args.modes.map((m) => [m, CORPUS_MODES[m].flags])),
+    geometry: { format: 'a4', orientation: 'portrait', margins: geo.margins },
+  };
+  const report = {
+    meta,
+    totals,
+    results,
+    modes: Object.fromEntries(modeRuns.map((m) => [m.name, { totals: m.totals, results: m.results }])),
+  };
+
   if (args.json) {
     fs.mkdirSync(path.dirname(path.resolve(args.json)), { recursive: true });
     fs.writeFileSync(path.resolve(args.json), JSON.stringify(report, null, 2) + '\n');
@@ -184,7 +228,7 @@ async function main() {
     // regeneration cannot silently delete evidence the generator does not own.
     const appendixPath = path.join(ROOT, 'docs', 'benchmarks-appendix.md');
     const appendix = fs.existsSync(appendixPath) ? fs.readFileSync(appendixPath, 'utf8').trim() : null;
-    const md = renderMarkdown({ meta, totals, results, groups, times, appendix });
+    const md = renderMarkdown({ meta, totals, results, groups, times, appendix, modes: modeRuns });
     fs.mkdirSync(path.dirname(path.resolve(args.markdown)), { recursive: true });
     fs.writeFileSync(path.resolve(args.markdown), md);
   }
@@ -222,7 +266,7 @@ async function main() {
  * The published report. Every number here is reproducible with one command,
  * which is the only reason it is worth writing down.
  */
-export function renderMarkdown({ meta, totals, results, groups, times, appendix }) {
+export function renderMarkdown({ meta, totals, results, groups, times, appendix, modes }) {
   const sortedTimes = [...times].sort((a, b) => a - b);
   const median = sortedTimes.length ? sortedTimes[Math.floor(sortedTimes.length / 2)] : 0;
   const ok = results.filter((r) => r.ok);
@@ -235,7 +279,50 @@ export function renderMarkdown({ meta, totals, results, groups, times, appendix 
   lines.push(`- **corpus:** ${meta.corpusDocuments} documents, hash \`${meta.corpusHash}\` (generated, deterministic — ${meta.measuredDocuments} measured here)`);
   lines.push(`- **run:** ${meta.date}, ${meta.platform}, Node ${meta.node}`);
   lines.push(`- **layout:** ${meta.layout} (${meta.geometry.format} ${meta.geometry.orientation}, margins ${Object.values(meta.geometry.margins).join('/')}in) — one detected section per page`);
+  if (meta.modes && meta.modes.length > 1) {
+    lines.push(`- **modes:** ${meta.modes.map((m) => `\`${m}\``).join(', ')} — one run, one warm browser; \`tagged\` and \`pdfa\` are flow layout plus a standards tail`);
+  }
   lines.push('');
+  if (modes && modes.length > 1) {
+    const label = (name) => (CORPUS_MODES[name] ? CORPUS_MODES[name].label : `\`${name}\``);
+    lines.push('## Modes measured');
+    lines.push('');
+    lines.push('The same documents, geometry and warm browser in every mode. Pages and fill are layout');
+    lines.push('numbers; bytes and time carry whatever the standards tail adds on top of the layout.');
+    lines.push('');
+    lines.push('| mode | flags | documents | pages | mean fill | under target | shrunk | oversized | size | median render | failures |');
+    lines.push('|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const m of modes) {
+      const t = m.totals;
+      const sorted = [...m.times].sort((a, b) => a - b);
+      const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+      lines.push(
+        `| \`${m.name}\` | ${label(m.name)} | ${t.documents} | ${t.pages} | ${Math.round(t.meanFill * 100)}% | ${t.underfilledPages} | ${t.shrunkPages} | ${t.overflowPages} | ${(t.bytes / 1024 / 1024).toFixed(1)} MB | ${ms(median)} | ${t.failed} |`
+      );
+    }
+    lines.push('');
+    for (const m of modes) {
+      if (m.failedIds && m.failedIds.length) {
+        lines.push(`- failures in \`${m.name}\`: ${m.failedIds.map((id) => `\`${id}\``).join(', ')}`);
+      }
+    }
+    if (modes.some((m) => m.failedIds && m.failedIds.length)) lines.push('');
+    // The prose-gap question is an archetype question: a layout that only
+    // helps reports and articles is not the one the flow work was for.
+    const fillOf = (m, a) => (m.groups[a] ? m.groups[a].fillSum / m.groups[a].documents : 1);
+    const archetypes = [...new Set(modes.flatMap((m) => Object.keys(m.groups)))].sort(
+      (a, b) => fillOf(modes[0], a) - fillOf(modes[0], b)
+    );
+    lines.push('## By archetype: mean fill per mode');
+    lines.push('');
+    lines.push(`| archetype | ${modes.map((m) => m.name).join(' | ')} |`);
+    lines.push(`|---|${modes.map(() => '---').join('|')}|`);
+    for (const a of archetypes) {
+      const cells = modes.map((m) => (m.groups[a] ? `${Math.round((m.groups[a].fillSum / m.groups[a].documents) * 100)}%` : '—'));
+      lines.push(`| ${a} | ${cells.join(' | ')} |`);
+    }
+    lines.push('');
+  }
   lines.push('## Totals');
   lines.push('');
   lines.push('| metric | value |');
@@ -277,10 +364,11 @@ export function renderMarkdown({ meta, totals, results, groups, times, appendix 
     lines.push('');
     for (const r of broken) lines.push(`- **${r.id}** — ${r.lint.errors} error(s), first rule \`${r.topRule}\``);
     lines.push('');
-    lines.push('They reference a local image beside the document. The security gate blocks every');
-    lines.push('`file://` request except the document itself, so the image does not load and prints as');
-    lines.push('blank space. `tympan lint` reports it as `broken-asset` instead of letting it pass');
-    lines.push('silently; inlining local assets is the next fidelity item.');
+    lines.push('Each line names the first rule the document failed. `page-underfilled` is');
+    lines.push('section layout being unable to fill a sheet — the flow rows above are what');
+    lines.push('closes it; `broken-asset` is a local image the security gate blocks (`file://`');
+    lines.push('reads are refused except the document itself), printed as blank space; inlining');
+    lines.push('local assets is the next fidelity item.');
   } else {
     lines.push('No lint errors in this run.');
   }
@@ -296,9 +384,13 @@ export function renderMarkdown({ meta, totals, results, groups, times, appendix 
   lines.push('  synthetic sheets is.');
   lines.push('- **Render time is one machine, warm browser, sequential.** It compares releases measured the');
   lines.push('  same way; it is not a throughput claim (a cold start pays Chromium launch once).');
-  lines.push('- **Section layout here.** The tables above are section mode, kept comparable across');
-  lines.push('  releases; flow layout exists (`--flow`), and the appendix is its measured A/B');
-  lines.push('  against this mode.');
+  lines.push('- **Modes.** Unless a mode says otherwise, the Totals, By-archetype and');
+  lines.push('  Worst-documents tables describe the FIRST mode listed (`section`), kept');
+  lines.push('  comparable across releases. Every mode uses the same corpus, geometry and warm');
+  lines.push('  browser in one run. `--tagged` and `--pdfa` are flow layout plus a standards');
+  lines.push('  tail, so their pages and fill should track flow; bytes and render time are');
+  lines.push('  where the tail itself shows. Fill is the converter\'s DOM measurement in');
+  lines.push('  every mode — the tail changes the PDF, not the layout.');
   if (appendix && String(appendix).trim()) {
     lines.push('');
     lines.push(String(appendix).trim());

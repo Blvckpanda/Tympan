@@ -219,8 +219,14 @@ the letter of the spec, the deviation and its reason are recorded here.
   names the remaining paid-tier work (plans, invoicing, fair-share, audit). The §6
   quality-bar items this makes measurable — published per-release numbers on a
   corpus — are now real: `scripts/corpus.mjs` writes
-  [docs/BENCHMARKS.md](docs/BENCHMARKS.md). §6's "200+ real documents" remains
-  unmet: the corpus is 52 *generated* documents, and the report says so.
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Since 2026-11-08 one run measures
+  the modes the tree ships — `scripts/corpus.mjs --modes section,flow,tagged,pdfa`
+  — against the same 52-document corpus, geometry and warm browser, so the
+  flags are compared rather than argued: section prints 340 pages at 41% mean
+  fill (329 under target), `--flow` 149 pages at 65% (none under target), and
+  the standards tails keep flow's layout while adding bytes (tagged 4.4 MB,
+  pdfa 2.5 MB, flow 2.4 MB). §6's "200+ real documents" remains unmet: the
+  corpus is 52 *generated* documents, and the report says so.
 
 **Deviations**
 

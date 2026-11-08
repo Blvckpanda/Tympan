@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `scripts/corpus.mjs --modes section,flow,tagged,pdfa`: the corpus benchmark
+  now measures every mode the tree ships in ONE run — same corpus, geometry
+  and warm browser — and `docs/BENCHMARKS.md` carries the four-mode table plus
+  per-archetype mean fill. First measurement (tree at `8ef3fc3`, 2026-11-08,
+  52 generated documents, hash `50181de9c90324ed`, zero failures): section
+  340 pages / 41% mean fill / 329 under the 70% target / 6.7 MB; `--flow`
+  149 pages / 65% / 0 under target / 2.4 MB; `--flow --tagged` the same layout
+  at 4.4 MB (the structure tree costs +83% bytes); `--flow --pdfa` the same
+  layout at 2.5 MB. The doc states corpus size, flags, date and the commit
+  measured, and the summary says plainly where flow wins (deck/resume/
+  newsletter/cjk, 59-76% against 16-30%) and where it loses (form/quote/
+  invoice/table-heavy, the short single-sheet archetypes). `docs/benchmarks.json`
+  carries all four modes' per-document rows.
 - `tympan serve --state-dir` turns three documented spike gaps into durable,
   single-machine seams, with zero new dependencies (a directory of JSON files,
   every write atomic via tmp+rename). Keys are stored as sha256 digests in
